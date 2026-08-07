@@ -145,7 +145,7 @@ for tab, stage in zip(tabs, STAGES):
                 "model",
                 options,
                 index=options.index(default_model) if default_model in options else 0,
-                format_func=lambda m: m or "gpt-4o (default)",
+                format_func=lambda m: m or "gpt-4o-mini (default)",
                 key=f"model_{stage['num']}",
             )
 
