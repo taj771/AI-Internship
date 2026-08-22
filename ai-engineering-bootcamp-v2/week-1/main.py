@@ -118,6 +118,31 @@ def call_model_unsafe(question: str, model: str) -> tuple[Answer, int, int, int]
     return answer, total, prompt_tokens, completion_tokens
 
 
+@app.get("/")
+def root():
+    """Say what this service is. A deployed API that 404s at its own root reads
+    as broken to anyone who pastes the bare URL into a browser."""
+
+    return {
+        "service": "week1-ask-api",
+        "endpoint": "POST /ask",
+        "interactive_docs": "/docs",
+        "returns": ["answer", "tokens_used", "model", "latency_ms", "cost_usd"],
+    }
+
+
+@app.get("/ask")
+def ask_usage():
+    """A browser address bar can only issue GET, so visiting the endpoint yields
+    405 — technically correct and completely unhelpful. Explain instead."""
+
+    return {
+        "detail": "This endpoint takes POST, not GET. A browser can only send GET from the address bar.",
+        "send": {"question": "What is RAG in one sentence?", "model": "gpt-4o-mini (optional)"},
+        "try_it_in_a_browser": "/docs",
+    }
+
+
 @app.post("/ask")
 def ask(body: AskRequest) -> AskResponse:
     """Answer one question with structured output, guardrails, and cost visibility."""
