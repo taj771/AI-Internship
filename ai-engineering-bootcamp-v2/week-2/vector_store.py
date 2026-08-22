@@ -542,7 +542,45 @@ def ingest_document(
 DEFAULT_TOP_K = 5
 
 
-def search(query: str, top_k: int = DEFAULT_TOP_K) -> dict:
+def build_filter(
+    document_id: str | None = None,
+    source: str | None = None,
+    extra: dict | None = None,
+) -> dict | None:
+    """Turn plain arguments into a Pinecone metadata filter, or None for no filter.
+
+    Filtering narrows the shelf *before* the search runs, rather than searching
+    everything and discarding afterwards. That distinction matters: top_k is
+    applied after filtering, so an unfiltered search that happens to return two
+    security chunks and three irrelevant ones becomes five security chunks once
+    filtered. The filter buys back slots, not just tidiness.
+
+    A list is turned into Pinecone's `$in` form so callers can say "either of
+    these two documents" without knowing the query syntax.
+
+    Returns None rather than an empty dict when nothing was asked for, because
+    Pinecone treats an empty filter as a filter and it is clearer to send no
+    filter at all.
+    """
+    conditions: dict = {}
+
+    if document_id:
+        conditions["document_id"] = (
+            {"$in": document_id} if isinstance(document_id, list) else document_id
+        )
+    if source:
+        conditions["source"] = {"$in": source} if isinstance(source, list) else source
+    if extra:
+        conditions.update(extra)
+
+    return conditions or None
+
+
+def search(
+    query: str,
+    top_k: int = DEFAULT_TOP_K,
+    metadata_filter: dict | None = None,
+) -> dict:
     """Find the chunks most similar in meaning to a question.
 
     This is retrieval on its own, with no LLM anywhere in it. Being able to run
@@ -562,12 +600,16 @@ def search(query: str, top_k: int = DEFAULT_TOP_K) -> dict:
 
     query_vectors, tokens = embed_texts([query])
 
-    response = get_index().query(
-        vector=query_vectors[0],
-        top_k=top_k,
-        include_metadata=True,  # Without this, only ids and scores come back --
-        include_values=False,   # and ids cannot be read or answered from.
-    )
+    query_args: dict = {
+        "vector": query_vectors[0],
+        "top_k": top_k,
+        "include_metadata": True,  # Without this, only ids and scores come back --
+        "include_values": False,   # and ids cannot be read or answered from.
+    }
+    if metadata_filter:
+        query_args["filter"] = metadata_filter
+
+    response = get_index().query(**query_args)
 
     matches = []
     for match in response.get("matches", []):
@@ -588,12 +630,42 @@ def search(query: str, top_k: int = DEFAULT_TOP_K) -> dict:
     return {
         "query": query,
         "top_k": top_k,
+        # Echoed back so a caller comparing two runs can see which one was
+        # filtered. A result set that does not state its own filter is a result
+        # set you cannot attribute.
+        "filter": metadata_filter,
         "matches_returned": len(matches),
         "embedding_model": EMBEDDING_MODEL,
         "embedding_tokens": tokens,
         "cost_usd": round(embedding_cost_usd(tokens), 8),
         "matches": matches,
     }
+
+
+def list_documents() -> list[dict]:
+    """Every document in the index, with how many chunks each has.
+
+    Derived from the vector ids rather than by scanning metadata, because ids
+    are structured as "<document_id>#<n>" and listing them is one cheap call.
+    Reading metadata for all of them would mean fetching every vector, which is
+    the same information at far greater cost.
+    """
+    counts: dict[str, int] = {}
+    for page in get_index().list():
+        if isinstance(page, str):
+            ids = [page]
+        elif hasattr(page, "vectors"):
+            ids = [item.id for item in page.vectors]
+        else:
+            ids = [i if isinstance(i, str) else i.id for i in page]
+        for vector_id in ids:
+            document_id = vector_id.rsplit("#", 1)[0]
+            counts[document_id] = counts.get(document_id, 0) + 1
+
+    return [
+        {"document_id": document_id, "chunks": chunks}
+        for document_id, chunks in sorted(counts.items())
+    ]
 
 
 def health_check(create_if_missing: bool = False) -> dict:

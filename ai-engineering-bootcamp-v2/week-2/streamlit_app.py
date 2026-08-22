@@ -77,6 +77,21 @@ if st.sidebar.button("Check service health", width="stretch"):
                     st.error(report.get("error", "Unknown problem"))
 
 
+@st.cache_data(ttl=60, show_spinner=False)
+def fetch_documents(api: str) -> list[dict]:
+    """Documents in the index, for the filter dropdown.
+
+    Cached briefly rather than fetched on every interaction: Streamlit re-runs
+    the whole script on each widget change, and an uncached call would query the
+    vector store every time a slider moved. The 60-second expiry is short enough
+    that a freshly ingested document appears without a restart.
+    """
+    try:
+        return httpx.get(f"{api}/documents", timeout=30.0).json()["documents"]
+    except Exception:  # noqa: BLE001 - absence just means no dropdown
+        return []
+
+
 st.title("Northwind RAG — ingest and ask")
 st.caption(f"Calling `{api_base}` · retrieval and generation happen in the API, not here")
 
@@ -186,9 +201,23 @@ with ask_tab:
         placeholder="What is the remote work policy?",
     )
 
-    opt1, opt2 = st.columns([1, 2])
+    opt1, opt2, opt3 = st.columns([1, 1, 1])
     top_k = opt1.slider("Chunks to retrieve (top_k)", 1, 10, 5)
-    use_rag = opt2.toggle(
+
+    docs = fetch_documents(api_base)
+    doc_labels = ["All documents"] + [
+        f"{d['document_id']}  ({d['chunks']} chunks)" for d in docs
+    ]
+    chosen = opt2.selectbox(
+        "Search only",
+        doc_labels,
+        help="Narrows retrieval to one document before searching. Because top_k "
+        "is applied after the filter, this frees slots that would otherwise go "
+        "to near-misses from other documents.",
+    )
+    filter_document_id = None if chosen == "All documents" else chosen.split()[0]
+
+    use_rag = opt3.toggle(
         "Use retrieval",
         value=True,
         help="Turn off to run the Week 1 path — straight to the model with no "
@@ -207,6 +236,7 @@ with ask_tab:
                             "question": question.strip(),
                             "top_k": int(top_k),
                             "use_rag": use_rag,
+                            **({"document_id": filter_document_id} if filter_document_id else {}),
                         },
                         timeout=REQUEST_TIMEOUT,
                     )
@@ -275,6 +305,11 @@ with ask_tab:
                         retrieved = result.get("retrieved", [])
                         if retrieved:
                             st.markdown("**Retrieved chunks**")
+                            if result.get("retrieval_filter"):
+                                st.caption(
+                                    f"Filtered to `{result['retrieval_filter']}` — "
+                                    "only chunks from that document were searched."
+                                )
                             st.caption(
                                 "Cosine similarity: 1.0 is identical in meaning, 0.0 unrelated. "
                                 "Read the scores against each other — a clear top hit means the "

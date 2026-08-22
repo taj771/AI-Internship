@@ -94,6 +94,16 @@ class AskRequest(BaseModel):
     use_rag: bool = True
     top_k: int | None = None
 
+    # Restrict retrieval to particular documents.
+    #
+    # Narrows the shelf before searching rather than searching everything and
+    # discarding afterwards, which matters because top_k is applied after the
+    # filter: an unfiltered search that returns four relevant chunks and one
+    # stray returns five relevant ones once filtered. The filter buys back a
+    # slot, it does not merely tidy the result.
+    document_id: str | None = None
+    source: str | None = None
+
     # use_rag exists to make the difference demonstrable in one request. Sending
     # the same question with use_rag false runs the Week 1 path -- straight to
     # the model, no documents -- so the before and after can be compared without
@@ -140,6 +150,10 @@ class AskResponse(BaseModel):
     # Week 2.
     rag: bool
     top_k: int | None = None
+    # Echoed so a caller comparing a filtered run against an unfiltered one can
+    # tell which is which. A result that does not state its own filter cannot be
+    # attributed.
+    retrieval_filter: dict | None = None
     retrieved_chunk_ids: list[str] = Field(default_factory=list)
     retrieved: list[RetrievedChunk] = Field(default_factory=list)
     retrieval_ms: int = 0
@@ -422,8 +436,33 @@ def pinecone_health():
     return JSONResponse(status_code=200 if report["ok"] else 503, content=report)
 
 
+@app.get("/documents")
+def documents() -> dict:
+    """List the documents currently in the index, with chunk counts.
+
+    Exists so a caller can offer a filter without hardcoding the corpus. A
+    dropdown built from a fixed list goes stale the moment a document is added
+    or renamed, and then filters to a document that is no longer there --
+    returning nothing, with no error to explain why.
+    """
+
+    try:
+        found = vector_store.list_documents()
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not list documents: {type(exc).__name__}: {exc}",
+        ) from exc
+    return {"documents": found, "total_chunks": sum(d["chunks"] for d in found)}
+
+
 @app.get("/debug/retrieve")
-def debug_retrieve(q: str, top_k: int = vector_store.DEFAULT_TOP_K) -> dict:
+def debug_retrieve(
+    q: str,
+    top_k: int = vector_store.DEFAULT_TOP_K,
+    document_id: str | None = None,
+    source: str | None = None,
+) -> dict:
     """Run retrieval alone and show what comes back. No LLM is called.
 
     The point is to make retrieval falsifiable on its own. A RAG system that
@@ -457,7 +496,13 @@ def debug_retrieve(q: str, top_k: int = vector_store.DEFAULT_TOP_K) -> dict:
     """
 
     try:
-        return vector_store.search(q, top_k=top_k)
+        return vector_store.search(
+            q,
+            top_k=top_k,
+            metadata_filter=vector_store.build_filter(
+                document_id=document_id, source=source
+            ),
+        )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:
@@ -571,12 +616,18 @@ def ask(body: AskRequest) -> AskResponse:
     matches: list[dict] = []
     embedding_tokens = 0
     retrieval_ms = 0
+    metadata_filter: dict | None = None
     prompt = body.question
 
     if body.use_rag:
+        metadata_filter = vector_store.build_filter(
+            document_id=body.document_id, source=body.source
+        )
         retrieval_start = time.perf_counter()
         try:
-            found = vector_store.search(body.question, top_k=top_k)
+            found = vector_store.search(
+                body.question, top_k=top_k, metadata_filter=metadata_filter
+            )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         except Exception as exc:
@@ -640,6 +691,7 @@ def ask(body: AskRequest) -> AskResponse:
                 cost_usd=round(generation_cost + embedding_cost, 8),
                 rag=body.use_rag,
                 top_k=top_k if body.use_rag else None,
+                retrieval_filter=metadata_filter if body.use_rag else None,
                 retrieved_chunk_ids=[m["id"] for m in matches],
                 retrieved=[
                     RetrievedChunk(

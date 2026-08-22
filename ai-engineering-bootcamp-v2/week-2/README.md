@@ -54,7 +54,11 @@ accounting, the guardrail, the response schema — is untouched.
 | `POST /ingest` | Chunk, embed and store a document. |
 | `POST /ask` | Retrieve, then answer from the retrieved text with citations. |
 | `GET /debug/retrieve?q=...` | Retrieval alone, with scores. No LLM call. |
-| `GET /health/pinecone` | Reachability, index dimension, vector count. |
+| `GET /documents` | Documents in the index, with chunk counts. |
+| `GET /health/pinecone` | Reachability, index dimension, vector count, chunk settings. |
+
+`POST /ask` and `GET /debug/retrieve` both accept `document_id` to restrict
+retrieval to one document.
 
 `POST /ask` accepts `use_rag: false` to run the Week 1 path unchanged, which is
 the cheapest way to show what retrieval actually contributes.
@@ -139,6 +143,115 @@ error** — retrieval just returns nonsense that looks like a working system.
 The vector length is derived from the model name rather than configured
 separately, because two settings that must agree are one setting waiting to
 disagree.
+
+## Add-ons
+
+| Add-on | Status | Where |
+|---|---|---|
+| 1 — Golden-set eval | done | `golden_set.json`, `evaluate.py`, Evaluate tab |
+| 2 — Chunk size comparison | done | three sizes measured; default changed to 400 |
+| 4 — Metadata filtering | done | `document_id` filter on `/ask` and `/debug/retrieve` |
+| 5 — Batch ingest | done | `ingest_corpus.py corpus/` — whole folder, one command |
+| 3 — Hybrid search | not attempted | see below |
+| 6 — Reranking | not attempted | see below |
+
+### Metadata filtering
+
+Retrieval can be restricted to one document before the search runs, rather than
+searching everything and discarding afterwards. The distinction matters because
+`top_k` is applied *after* filtering, so the filter frees slots rather than just
+tidying results.
+
+Measured on *"What are the password requirements?"*:
+
+| | chunks from POL-207 (security) |
+|---|---|
+| no filter | **4 of 5** — a handbook chunk scored 0.505 and displaced one |
+| `document_id=POL-207` | **5 of 5** |
+
+Filtering to the *wrong* document is the better demonstration: the same question
+restricted to POL-118 (facilities) returns five facilities chunks and the service
+**refuses**, because facilities genuinely contains no password rules. The filter
+restricts what is searched; it does not merely relabel the output.
+
+The dropdown in the UI is populated from `GET /documents` rather than hardcoded,
+so it cannot go stale when a document is added or renamed.
+
+### Hybrid search and reranking — considered, not attempted
+
+**Hybrid search** (keyword + vector) would suit this corpus, which is full of
+exact identifiers — `POL-207`, `SPEC-WB9` — that embeddings handle poorly, since
+an identifier carries almost no semantic content. The obstacle is structural
+rather than conceptual: Pinecone serverless stores dense vectors, so keyword
+search needs a second index and a fusion step. That is a rebuild of a working
+retrieval path, not an addition to it.
+
+**Reranking** would likely improve quality most of the three. Fetching 20 chunks
+and reordering them with a model that reads question and passage *together* is
+strictly more accurate than comparing two independently-computed embeddings, and
+it targets exactly the near-miss that H5 exposed. It needs a third-party rerank
+API and adds latency to every question.
+
+Both are the right next steps. Neither is a sensible thing to start immediately
+before a deadline, and metadata filtering delivered a measurable improvement
+using metadata already stored.
+
+## Golden-set evaluation
+
+`evaluate.py` scores the service against questions whose answers are known.
+Five come from the corpus's own README; five more (H1-H5) were added because the
+original five passed at every chunk size tried, which meant the set could not
+discriminate rather than that the settings were equivalent.
+
+```bash
+.venv/bin/python evaluate.py --api https://week2-rag-api.onrender.com
+```
+
+| # | Question | Expected answer | Source | Retrieval hit | Faithful | Correct |
+|---|---|---|---|---|---|---|
+| Q1 | How many remote days are allowed? | Up to 3 days per week | `POL-101` | ✅ | ✅ | ✅ |
+| Q2 | What is the mileage rate? | 45p/mile, journeys over 50 miles | `POL-114` | ✅ | ✅ | ✅ |
+| Q3 | How quickly must a lost laptop be reported? | Within 1 hour, to the security desk | `POL-207` | ✅ | ✅ | ✅ |
+| Q4 | What is the WB-9 payload limit? | 25 kg, including the tote | `SPEC-WB9` | ✅ | ✅ | ✅ |
+| Q5 | What is the parental leave policy? | *(not in the corpus — must refuse)* | **refusal** | — | ✅ | ✅ |
+| H1 | I drove 20 miles to a client meeting. How much can I claim? | Nothing — under the 50-mile threshold | `POL-114` | ✅ | ✅ | ❌ |
+| H2 | Does the 25 kg payload include the tote? | Includes the tote | `SPEC-WB9` | ✅ | ✅ | ✅ |
+| H3 | I am fully remote. Can I claim mileage from home? | Yes — measured from home when fully remote | `POL-114` | ✅ | ✅ | ✅ |
+| H4 | Can I claim a receipt from 45 days ago? | Yes, with director approval (30–90 days) | `POL-114` | ✅ | ✅ | ✅ |
+| H5 | Can the WB-9 run at 1.5 m/s in a narrow aisle near a person? | No — adaptive limits apply | `SPEC-WB9` | ✅ | ✅ | ✅ |
+
+**9/10.** Retrieval hit 9/9, refusal 1/1, faithfulness 10/10, $0.001 per run.
+
+Four measures rather than one, because they fail separately and imply opposite
+repairs:
+
+- **retrieval hit** — did a *retrieved chunk* carry the fact? Checked at chunk
+  level, not document level. An earlier version checked only whether the right
+  document came back, and passed on a question whose answer was in none of the
+  five retrieved chunks.
+- **faithful** — is the answer supported by the passages? An LLM judge, so a
+  second opinion rather than a measurement, and reported as such.
+- **correct** — does the answer state the known fact?
+
+H1 shows why they cannot be collapsed: it is **faithful but incorrect**. The
+service refused, and a refusal asserts nothing, so it is perfectly grounded and
+still the wrong answer.
+
+## H1 — a limitation left in deliberately
+
+H1 asks about a 20-mile journey. POL-114 says *"travel over 50 miles may be
+claimed at 45 pence per mile"*, and that chunk **is retrieved, top of the list**.
+The service refuses anyway.
+
+It is not hallucinating; it is over-refusing. The context states a rule and
+answering requires one step of arithmetic, which the grounding prompt's *"if the
+context does not contain the answer"* is read as excluding. H4 makes the same
+kind of inference successfully (45 days > 30), so this is a judgement rather than
+a rule.
+
+The strictness that produces the clean parental-leave refusal is the same
+strictness that refuses this. Loosening it would risk the behaviour the rest of
+the assignment demonstrates, so it is documented rather than tuned away.
 
 ## Measured: chunk_overlap often does nothing
 
