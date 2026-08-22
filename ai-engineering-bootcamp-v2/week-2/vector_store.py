@@ -185,6 +185,12 @@ def config_summary() -> dict:
         "cloud": PINECONE_CLOUD,
         "region": PINECONE_REGION,
         "metric": PINECONE_METRIC,
+        # Reported because a deployed service's chunk settings are otherwise
+        # invisible, and they are the settings most likely to differ from what a
+        # write-up claims. A local .env change does not reach the server, and a
+        # config value that cannot be read back has to be taken on trust.
+        "chunk_size": CHUNK_SIZE,
+        "chunk_overlap": CHUNK_OVERLAP,
     }
 
 
