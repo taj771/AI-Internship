@@ -6,7 +6,7 @@
 #
 # Deploy with:  Render dashboard -> New -> Blueprint -> pick this repo.
 #
-# Two services rather than one, because on Render the service name *is* the
+# Separate services rather than one, because on Render the service name *is* the
 # public hostname. Renaming week1-ask-api to something clearer would have
 # retired week1-ask-api.onrender.com, which is the URL already submitted for
 # Week 1 — so a grader revisiting that link would find nothing. Instead week 1
@@ -14,6 +14,12 @@
 #
 #   week1-ask-api.onrender.com   -> ai-engineering-bootcamp-v2/week-1
 #   week2-rag-api.onrender.com   -> ai-engineering-bootcamp-v2/week-2
+#   week2-rag-ui.onrender.com    -> ai-engineering-bootcamp-v2/week-2  (same folder)
+#
+# The UI and the API are two services out of one folder. They are separate
+# because they are separate programs: the API answers machines and holds the
+# keys; the UI answers people and holds none. Running them together would put
+# the keys inside a page the public can load.
 
 services:
   # ---------------------------------------------------------------- week 1 ---
@@ -97,5 +103,47 @@ services:
 
       # Pinned so a Render default bump cannot change the runtime underneath
       # a working deploy. Matches the local .venv.
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+
+  # ------------------------------------------------------------- week 2 UI ---
+  # The Streamlit page. Same folder and same requirements.txt as the API above,
+  # but a different program started from it — so it needs its own service.
+  #
+  # Note what is NOT here: no OPENAI_API_KEY, no PINECONE_API_KEY. The UI never
+  # talks to OpenAI or Pinecone. It sends an HTTP request to the API service and
+  # renders whatever comes back. That is why this page can be public with no
+  # secrets to leak, and it is worth keeping that way — the moment a key appears
+  # in this block, the design has gone wrong.
+  - type: web
+    name: week2-rag-ui
+    runtime: python
+    plan: free
+    rootDir: ai-engineering-bootcamp-v2/week-2
+    buildCommand: pip install -r requirements.txt
+
+    # --server.address 0.0.0.0 for the same reason uvicorn needs it above: the
+    # container must accept connections from outside itself.
+    #
+    # --server.port $PORT because Render assigns the port at boot. Streamlit's
+    # default of 8501 would leave the health check knocking on an empty door.
+    #
+    # --server.headless true stops Streamlit from trying to open a browser and
+    # from printing its first-run email prompt. On a server there is no browser
+    # and nobody to answer the prompt, and the boot hangs waiting.
+    startCommand: >
+      streamlit run streamlit_app.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.headless true
+
+    envVars:
+      # Which API this page talks to. streamlit_app.py already defaults to this
+      # URL in code, but setting it here means the page can be repointed from
+      # the dashboard without a commit — and it documents the dependency where
+      # someone reading the deployment config will see it.
+      - key: API_BASE_URL
+        value: https://week2-rag-api.onrender.com
+
       - key: PYTHON_VERSION
         value: "3.12.3"
