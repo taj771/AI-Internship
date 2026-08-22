@@ -11,9 +11,11 @@ it in place. `week-1/` is a submitted, deployed artifact; freezing it means the
 graded thing stays exactly as graded, and a reader can diff the two folders to
 see precisely what RAG added.
 
-Copied across: `main.py` (the Session 1 service), `demo_page.py`, and the
-config. Left behind: `serve_stage1-5.py` and `test_all_stages.py`, which are
-Week 1 teaching snapshots superseded by `main.py`.
+Copied across: `main.py` (the Session 1 service) and the config. Left behind:
+`serve_stage1-5.py`, `test_all_stages.py` and `demo_page.py`, which are Week 1
+teaching artifacts — the stage files are superseded by `main.py`, and the demo
+page drove those stage servers rather than this one. `streamlit_app.py` replaces
+it.
 
 ## What Week 1 already gave us
 
@@ -35,12 +37,45 @@ accounting, the guardrail, the response schema — is untouched.
 | File | What it does |
 |---|---|
 | `main.py` | FastAPI service. HTTP layer only. |
-| `vector_store.py` | Config, Pinecone client, embeddings, health check. |
-| `demo_page.py` | Streamlit UI for calling the API. |
-| `requirements.txt` | Dependencies, including `pinecone`. |
+| `vector_store.py` | Config, Pinecone client, embeddings, retrieval, health check. |
+| `ingest_corpus.py` | Loads a folder of documents through `POST /ingest`. |
+| `streamlit_app.py` | UI for ingest and ask. Holds no keys; calls the API. |
+| `corpus/` | The six provided Northwind Robotics documents. |
+| `NORTHWIND-CORPUS-KEY.md` | The corpus's own answer key. Kept **outside** `corpus/` so it cannot be ingested and answered from. |
+| `requirements.txt` | Pinned dependencies. |
 | `.env` | Secrets. Gitignored — never committed. |
 | `.env.example` | The same keys with values removed, as a template. |
 | `rag-vector-databases/` | The instructor's live-session notebook. Reference. |
+
+## Endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /ingest` | Chunk, embed and store a document. |
+| `POST /ask` | Retrieve, then answer from the retrieved text with citations. |
+| `GET /debug/retrieve?q=...` | Retrieval alone, with scores. No LLM call. |
+| `GET /health/pinecone` | Reachability, index dimension, vector count. |
+
+`POST /ask` accepts `use_rag: false` to run the Week 1 path unchanged, which is
+the cheapest way to show what retrieval actually contributes.
+
+## Running it
+
+```bash
+.venv/bin/uvicorn main:app --port 8001          # API
+.venv/bin/python ingest_corpus.py corpus/       # load the corpus
+.venv/bin/streamlit run streamlit_app.py        # UI
+```
+
+Port 8001 rather than the usual 8000 only because 8000 was occupied locally;
+nothing depends on it.
+
+## Live
+
+| | URL |
+|---|---|
+| Week 2 (this) | https://week2-rag-api.onrender.com |
+| Week 1 (frozen) | https://week1-ask-api.onrender.com |
 
 ## Setup
 
@@ -105,6 +140,26 @@ The vector length is derived from the model name rather than configured
 separately, because two settings that must agree are one setting waiting to
 disagree.
 
+## Measured: chunk_overlap often does nothing
+
+`chunk_overlap` is not "repeat the last N characters". RecursiveCharacterTextSplitter
+splits into whole sentences and carries **whole sentences** into the next chunk,
+as many as fit the overlap budget. It never cuts a sentence to create overlap.
+
+So when every sentence is longer than the budget, the overlap is **zero** — and
+nothing warns you. Measured on prose whose sentences run 117–170 characters:
+
+| Setting | Actual overlap observed |
+|---|---|
+| overlap = 100 | **0, 0** — no sentence fits |
+| overlap = 200 | 117, 170 |
+| overlap = 300 | 117, 170 (no room for a second sentence) |
+
+The configured default stays at 100 to match the assignment, but on ordinary
+business prose that produces no overlap at all. Anything relying on overlap for
+protection at chunk boundaries should verify it is actually happening rather
+than assume the setting took effect.
+
 ## Known limits
 
 - The Pinecone index dimension is fixed at creation (1536, for
@@ -113,3 +168,13 @@ disagree.
 - Free Starter plan: one region (AWS `us-east-1`), 5 indexes, ~300k vectors.
 - Free Render instances sleep after ~15 minutes idle, so a first request after
   a quiet period can take ~45 seconds to wake.
+- Pinecone indexes asynchronously. A document ingested and queried within a
+  second or two may not be found yet — the store returns a view that has not
+  caught up. This is not an error and needs no retry logic, but it does mean a
+  demo that ingests and immediately asks can look broken.
+- Retrieval always returns `top_k` chunks, however poor. It cannot report "no
+  relevant match", so a question outside the corpus still produces five passages
+  and the refusal has to come from the model reading them.
+- Both endpoints are public and unauthenticated. `/ingest` is a write endpoint,
+  so anyone with the URL can add documents to the index and spend embedding
+  credit. Acceptable for coursework; not for anything real.

@@ -38,19 +38,41 @@ TEXT_SUFFIXES = {".txt", ".md", ".markdown"}
 REQUEST_TIMEOUT_SEC = 300.0
 
 
-def document_id_for(path: Path, root: Path) -> str:
-    """A stable, readable id derived from the file's path.
+# Many document sets carry their own identifier in a header line, e.g.
+#
+#     Northwind Robotics Employee Handbook
+#     Author: People Operations Team
+#     Document ID: POL-101
+#
+# Preferring that over a filename-derived slug matters for citations. The
+# corpus's own golden set refers to these documents as POL-101 and SPEC-WB9, so
+# an answer citing "POL-101" can be checked against the expected source directly,
+# while one citing "doc1-handbook" needs a mental lookup first. It is also the
+# name the fictional company itself uses, which is what a real citation would say.
+DOCUMENT_ID_HEADER = re.compile(r"^\s*Document\s*ID\s*:\s*(\S+)", re.IGNORECASE | re.MULTILINE)
 
-    Stable matters more than pretty. Ingestion overwrites by document_id, so an
-    id derived from the path means re-running this script updates the corpus in
-    place; an id containing a timestamp or a random number would add a fresh
-    copy of everything on every run, and retrieval would slowly fill with
-    duplicates of the same passages.
+# Only look near the top. A document that mentions "Document ID: POL-207" in a
+# cross-reference halfway down should not be mistaken for POL-207 itself -- and
+# these documents cross-reference each other constantly.
+HEADER_SEARCH_CHARS = 600
 
-    The relative path is used rather than just the filename so that
-    reports/2025.md and notes/2025.md do not collide and silently overwrite one
-    another.
+
+def document_id_for(path: Path, root: Path, text: str = "") -> str:
+    """The document's own id if it declares one, otherwise one from its path.
+
+    Stable matters more than pretty. Ingestion overwrites by document_id, so a
+    deterministic id means re-running this script updates the corpus in place;
+    an id containing a timestamp or a random number would add a fresh copy of
+    everything on every run, and retrieval would slowly fill with duplicates.
+
+    The path fallback uses the relative path rather than just the filename, so
+    that reports/2025.md and notes/2025.md do not collide and silently overwrite
+    one another.
     """
+    match = DOCUMENT_ID_HEADER.search(text[:HEADER_SEARCH_CHARS])
+    if match:
+        return match.group(1).strip().rstrip(".,;")
+
     relative = path.relative_to(root).with_suffix("")
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", str(relative)).strip("-").lower()
     return slug or path.stem.lower()
@@ -94,7 +116,8 @@ def main() -> int:
 
     if args.dry_run:
         for path in documents:
-            print(f"  {document_id_for(path, root):40s} {path.relative_to(root)}")
+            text = path.read_text(encoding="utf-8", errors="replace")
+            print(f"  {document_id_for(path, root, text):20s} {path.relative_to(root)}")
         print("\n--dry-run: nothing was sent.")
         return 0
 
@@ -113,8 +136,8 @@ def main() -> int:
     failures: list[tuple[str, str]] = []
 
     for path in documents:
-        document_id = document_id_for(path, root)
         text = path.read_text(encoding="utf-8", errors="replace")
+        document_id = document_id_for(path, root, text)
 
         payload = {
             "text": text,
@@ -126,7 +149,7 @@ def main() -> int:
         if args.chunk_overlap is not None:
             payload["chunk_overlap"] = args.chunk_overlap
 
-        print(f"  {document_id:40s} {len(text):>8,} chars ... ", end="", flush=True)
+        print(f"  {document_id:14s} {path.name:28s} {len(text):>8,} chars ... ", end="", flush=True)
         try:
             response = httpx.post(
                 f"{api}/ingest", json=payload, timeout=REQUEST_TIMEOUT_SEC
