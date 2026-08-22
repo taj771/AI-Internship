@@ -80,13 +80,20 @@ services:
       - key: EMBEDDING_MODEL
         value: text-embedding-3-small
 
-      # Chunking defaults. Overridable per request on POST /ingest, so these are
-      # the starting point for comparisons rather than a fixed choice.
+      # Chunking defaults. Overridable per request on POST /ingest.
+      #
+      # 400 rather than the 800 originally guessed, because a chunking
+      # experiment measured 800 as the worst of the three sizes tried. At 800
+      # the WB-9 speed qualifier shares a chunk with the payload and battery
+      # notes, so its embedding averages three topics and ranks poorly on a
+      # question about speed. At 400 it gets a chunk to itself. At 1600 it is
+      # still blended, but five chunks cover 83% of that document so it is
+      # retrieved anyway. 400 also costs ~35% less per query than 800.
       - key: CHUNK_SIZE
-        value: "800"
+        value: "400"
 
       - key: CHUNK_OVERLAP
-        value: "100"
+        value: "50"
 
       # Pinned so a Render default bump cannot change the runtime underneath
       # a working deploy. Matches the local .venv.

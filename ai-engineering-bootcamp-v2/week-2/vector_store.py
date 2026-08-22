@@ -95,14 +95,27 @@ PINECONE_METRIC = "cosine"
 # subject. Neither answers a question. Repeating the tail of each passage at the
 # head of the next means a sentence cut in half still survives whole somewhere.
 #
-# The cost of overlap is duplication: at 800/100 roughly an eighth of the corpus
-# is stored twice, so embedding costs and storage rise by about that much.
+# The cost of overlap is duplication: at these settings roughly an eighth of the
+# corpus is stored twice, so embedding costs and storage rise by about that much.
+#
+# 400/50 rather than the 800/100 first guessed, on measured evidence. A chunking
+# experiment over a ten-question golden set scored 800 *worst* of the three sizes
+# tried, and the reason is visible in the chunks: at 800 the WB-9 speed qualifier
+# shares a chunk with the payload and battery notes, so its embedding averages
+# three subjects and ranks poorly against a question about speed. At 400 it gets
+# a chunk to itself and ranks first. At 1600 it is blended with four subjects and
+# ranks even worse, but five chunks then cover 83% of that document so it is
+# swept up regardless.
+#
+# The relationship is not monotonic: chunk *purity* drives precision and chunk
+# *count* drives coverage, and the middle setting sacrificed both. 400 also costs
+# ~35% less per query than 800.
 #
 # These are defaults. POST /ingest accepts per-request overrides, because the
 # method this assignment teaches is "change one thing, measure again" -- and
-# needing a server restart to try 500 instead of 800 kills that loop.
-CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "800"))
-CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "100"))
+# needing a server restart to try one size instead of another kills that loop.
+CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "400"))
+CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", "50"))
 
 
 def embedding_dimensions() -> int:

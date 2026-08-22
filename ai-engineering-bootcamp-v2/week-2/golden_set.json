@@ -1,0 +1,142 @@
+{
+  "_about": [
+    "Questions with known answers, used to score the system rather than judge it by eye.",
+    "",
+    "The five questions come from the corpus's own README, which names the",
+    "expected source document for each. They are reproduced here as data so a",
+    "script can run them, rather than left in prose for a human to copy.",
+    "",
+    "expect_refusal marks the question the corpus deliberately does not answer:",
+    "POL-101 covers annual and sick leave but omits parental leave entirely. It",
+    "is the most informative case in the set, because retrieval still returns",
+    "five plausible chunks about leave and the system has to decline anyway.",
+    "",
+    "must_contain holds the fact an answer has to state to count as correct. Kept",
+    "as short distinctive strings ('45', 'one hour') rather than whole sentences,",
+    "because the model paraphrases -- 'within one hour' and '1 hour' are both",
+    "right, and a scorer that demanded exact wording would mark correct answers",
+    "wrong. Alternatives within a list are OR'd.",
+    "",
+    "expect_evidence is the phrase that must appear in a retrieved chunk for the",
+    "question to be answerable. Checking it separates the two failures that a",
+    "document-level hit cannot: retrieval returned the right document but not the",
+    "chunk carrying the fact, versus retrieval worked and the model declined",
+    "anyway. Those need opposite fixes, and one metric cannot report both."
+  ],
+  "questions": [
+    {
+      "id": "Q1",
+      "question": "How many remote days are allowed?",
+      "expect_document": "POL-101",
+      "must_contain": [
+        "three days",
+        "3 days"
+      ],
+      "note": "Handbook: remote up to 3 days/week.",
+      "expect_evidence": "three days per week"
+    },
+    {
+      "id": "Q2",
+      "question": "What is the mileage rate?",
+      "expect_document": "POL-114",
+      "must_contain": [
+        "45"
+      ],
+      "note": "Expenses: 45p per mile for journeys over 50 miles.",
+      "expect_evidence": "45 pence per mile"
+    },
+    {
+      "id": "Q3",
+      "question": "How quickly must a lost laptop be reported?",
+      "expect_document": "POL-207",
+      "must_contain": [
+        "one hour",
+        "1 hour"
+      ],
+      "note": "Security: lost device reported within 1 hour.",
+      "expect_evidence": "within one hour"
+    },
+    {
+      "id": "Q4",
+      "question": "What is the WB-9 payload limit?",
+      "expect_document": "SPEC-WB9",
+      "must_contain": [
+        "25"
+      ],
+      "note": "Product spec: payload 25 kg.",
+      "expect_evidence": "payload capacity of 25 kg"
+    },
+    {
+      "id": "Q5",
+      "question": "What is the parental leave policy?",
+      "expect_refusal": true,
+      "note": "Deliberately absent from the corpus. Retrieval still returns chunks about annual and sick leave, scoring higher than several questions that are answered correctly, so no similarity threshold could produce this refusal."
+    },
+    {
+      "id": "H1",
+      "question": "I drove 20 miles to a client meeting. How much mileage can I claim?",
+      "expect_document": "POL-114",
+      "must_contain": [
+        "50 mile",
+        "50 miles",
+        "over 50",
+        "cannot",
+        "not claimable",
+        "no mileage",
+        "not eligible"
+      ],
+      "note": "BOUNDARY TRAP. The corpus says 'Travel over 50 miles may be claimed at 45 pence per mile.' The rate and its threshold are in one sentence; a chunk boundary between them leaves '45 pence per mile' with no qualifier, and the answer becomes a confident 9 pounds. A correct answer has to mention the 50-mile threshold or say the trip does not qualify.",
+      "expect_evidence": "over 50 miles"
+    },
+    {
+      "id": "H2",
+      "question": "Does the WB-9's 25 kg payload rating include the tote, or is that on top?",
+      "expect_document": "SPEC-WB9",
+      "must_contain": [
+        "including the tote",
+        "includes the tote",
+        "including tote"
+      ],
+      "note": "QUALIFIER TRAP. '25 kg' appears in the summary paragraph; 'including the tote' appears in a separate Payload notes paragraph further down. Retrieving only the summary produces an answer that is right about the number and wrong about the question.",
+      "expect_evidence": "including the tote"
+    },
+    {
+      "id": "H3",
+      "question": "I am fully remote. Can I claim mileage from my home to a client site?",
+      "expect_document": "POL-114",
+      "must_contain": [
+        "home",
+        "fully remote",
+        "remote"
+      ],
+      "note": "CROSS-DOCUMENT. POL-114 says mileage is measured from the normal workplace 'or home, when the employee is fully remote under POL-101'. The rule lives in the expenses policy but is conditioned on a status defined in the handbook.",
+      "expect_evidence": "fully remote"
+    },
+    {
+      "id": "H4",
+      "question": "I found a receipt for a trip 45 days ago. Can I still claim it?",
+      "expect_document": "POL-114",
+      "must_contain": [
+        "director",
+        "approval"
+      ],
+      "note": "NEAR-MISS TRAP. The headline rule is 'claims must be submitted within 30 days', which alone implies no. The exception -- 30-90 days needs director approval, over 90 days denied -- is in a separate 'Late claims' paragraph. Retrieving only the headline gives a wrong answer that sounds authoritative.",
+      "expect_evidence": "older than 30 days"
+    },
+    {
+      "id": "H5",
+      "question": "Can the WB-9 run at 1.5 m/s in a narrow aisle next to a person?",
+      "expect_document": "SPEC-WB9",
+      "must_contain": [
+        "narrow aisle",
+        "adaptive",
+        "reduced",
+        "cannot",
+        "limits apply",
+        "lower"
+      ],
+      "note": "QUALIFIER TRAP, negation form. '1.5 m/s' is stated as the maximum in the summary; the Speed notes paragraph says that figure applies only in open aisles with a valid safety field, and adaptive limits apply near humans. Answering 'yes, 1.5 m/s' is exactly the failure the question is built to catch.",
+      "expect_evidence": "narrow aisles"
+    }
+  ]
+}

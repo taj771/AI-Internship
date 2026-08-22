@@ -21,6 +21,7 @@ Point it at a service with the sidebar box, or set API_BASE_URL before running:
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import httpx
 import streamlit as st
@@ -79,7 +80,9 @@ if st.sidebar.button("Check service health", width="stretch"):
 st.title("Northwind RAG — ingest and ask")
 st.caption(f"Calling `{api_base}` · retrieval and generation happen in the API, not here")
 
-ingest_tab, ask_tab = st.tabs(["Ingest a document", "Ask a question"])
+ingest_tab, ask_tab, eval_tab = st.tabs(
+    ["Ingest a document", "Ask a question", "Evaluate"]
+)
 
 
 # --- Ingest -------------------------------------------------------------------
@@ -293,3 +296,122 @@ with ask_tab:
 
                         with st.expander("Full response"):
                             st.json(result)
+
+
+# --- Evaluate -----------------------------------------------------------------
+
+with eval_tab:
+    st.subheader("Golden-set evaluation")
+    st.write(
+        "Runs a fixed list of questions whose answers are known, and scores the "
+        "system against them. The questions never change; only the system does — "
+        "which is what makes two runs comparable."
+    )
+
+    # Imported rather than reimplemented. The scoring rules live in evaluate.py
+    # and are used by both the command line and this tab, for the same reason the
+    # page does no retrieval: two copies of a rule drift, and then a screenshot
+    # stops being evidence about the thing that was shipped.
+    import evaluate as evaluator
+
+    golden_path = Path(__file__).resolve().parent / "golden_set.json"
+    try:
+        questions = evaluator.load_golden_set(golden_path)
+    except Exception as exc:  # noqa: BLE001
+        st.error(f"Could not read {golden_path.name}: {exc}")
+        questions = []
+
+    if questions:
+        st.caption(
+            f"{len(questions)} questions from `{golden_path.name}` — "
+            f"{sum(1 for q in questions if q.get('expect_refusal'))} of them expect a refusal."
+        )
+
+        col1, col2 = st.columns([1, 2])
+        eval_top_k = col1.slider("top_k", 1, 10, 5, key="eval_top_k")
+        check_faithfulness = col2.toggle(
+            "Include faithfulness judge",
+            value=False,
+            help="Asks a second model whether each answer is supported by the "
+            "passages. Roughly doubles the cost, and is a second opinion rather "
+            "than a measurement.",
+        )
+
+        if st.button("Run evaluation", type="primary", width="stretch"):
+            with st.spinner(f"Asking {len(questions)} questions..."):
+                try:
+                    results = evaluator.evaluate(
+                        api_base, questions, eval_top_k, check_faithfulness
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    st.error(f"Evaluation failed: {type(exc).__name__}: {exc}")
+                    results = []
+
+            if results:
+                def tick(value):
+                    return "—" if value is None else ("PASS" if value else "FAIL")
+
+                st.dataframe(
+                    [
+                        {
+                            "id": r["id"],
+                            "retrieval": tick(r.get("retrieval_hit")),
+                            "evidence": tick(r.get("evidence_in_context")),
+                            "correct": tick(r.get("correct")),
+                            "cited": tick(r.get("cited_expected")),
+                            **({"faithful": tick(r.get("faithful"))} if check_faithfulness else {}),
+                            "refused": r.get("refused"),
+                            "question": r["question"],
+                        }
+                        for r in results
+                    ],
+                    width="stretch",
+                    hide_index=True,
+                )
+
+                answerable = [r for r in results if not r["expect_refusal"] and "error" not in r]
+                refusals = [r for r in results if r["expect_refusal"] and "error" not in r]
+                passed = sum(1 for r in results if r.get("passed"))
+                with_evidence = [r for r in answerable if r.get("evidence_in_context") is not None]
+
+                m1, m2, m3, m4 = st.columns(4)
+                m1.metric("Overall", f"{passed}/{len(results)}")
+                m2.metric(
+                    "Evidence retrieved",
+                    f"{sum(1 for r in with_evidence if r['evidence_in_context'])}/{len(with_evidence)}",
+                )
+                m3.metric("Correct", f"{sum(1 for r in answerable if r.get('correct'))}/{len(answerable)}")
+                m4.metric(
+                    "Refused as needed",
+                    f"{sum(1 for r in refusals if r.get('refused'))}/{len(refusals)}" if refusals else "—",
+                )
+
+                # The split that makes a failure actionable. Evidence missing and
+                # evidence present but answered wrongly need opposite repairs, and
+                # a single score reports neither.
+                retrieval_problems = [r for r in answerable if r.get("evidence_in_context") is False]
+                generation_problems = [
+                    r for r in answerable if r.get("evidence_in_context") and not r.get("correct")
+                ]
+
+                if retrieval_problems:
+                    ids = ", ".join(r["id"] for r in retrieval_problems)
+                    st.error(
+                        f"**Retrieval problem — {ids}.** The fact was never retrieved, so the "
+                        "model could not have used it. Fix chunking, `top_k` or the embedding "
+                        "model; the prompt cannot help."
+                    )
+                if generation_problems:
+                    ids = ", ".join(r["id"] for r in generation_problems)
+                    st.warning(
+                        f"**Generation problem — {ids}.** The fact *was* retrieved and the answer "
+                        "is still wrong. Retrieval is doing its job; the prompt is where to look."
+                    )
+                if not retrieval_problems and not generation_problems:
+                    st.success("All answerable questions passed.")
+
+                total_cost = sum(r.get("cost_usd", 0.0) for r in results)
+                st.caption(f"Cost of this run: ${total_cost:.6f}")
+
+                with st.expander("Full results"):
+                    st.json(results)
