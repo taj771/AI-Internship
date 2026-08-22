@@ -1,4 +1,4 @@
-# Render deployment for the bootcamp /ask API.
+# Render deployment for the bootcamp APIs — one service per week.
 #
 # Committed rather than clicked into the dashboard so the configuration is
 # recoverable: a service rebuilt from memory six weeks from now is a service
@@ -6,24 +6,41 @@
 #
 # Deploy with:  Render dashboard -> New -> Blueprint -> pick this repo.
 #
-# Week 2 note: the service name stays week1-ask-api. Renaming it in Render mints
-# a new URL, and the old one -- already submitted for Week 1 -- would stop
-# answering. The name is now historical; rootDir below says what actually runs.
+# Two services rather than one, because on Render the service name *is* the
+# public hostname. Renaming week1-ask-api to something clearer would have
+# retired week1-ask-api.onrender.com, which is the URL already submitted for
+# Week 1 — so a grader revisiting that link would find nothing. Instead week 1
+# keeps its name and its URL, and week 2 gets its own.
+#
+#   week1-ask-api.onrender.com   -> ai-engineering-bootcamp-v2/week-1
+#   week2-rag-api.onrender.com   -> ai-engineering-bootcamp-v2/week-2
 
 services:
+  # ---------------------------------------------------------------- week 1 ---
+  # Frozen at what was submitted. Restored here after Week 2 work temporarily
+  # repointed it; the URL in the Week 1 submission serves the Week 1 app again.
   - type: web
     name: week1-ask-api
+    runtime: python
+    plan: free
+    rootDir: ai-engineering-bootcamp-v2/week-1
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+
+  # ---------------------------------------------------------------- week 2 ---
+  - type: web
+    name: week2-rag-api
     runtime: python
     plan: free
 
     # The repo holds several courses; only this folder is the deployable app.
     # Build and start commands run relative to it, which is why they can say
     # "requirements.txt" and "main.py" with no path.
-    #
-    # Week 2 repoints this from week-1 to week-2. week-1/ is frozen at exactly
-    # what was submitted and is still in git; it is simply no longer the thing
-    # being served. week-2/main.py is that same service with retrieval added,
-    # so every Week 1 endpoint still works and answers the same shape.
     rootDir: ai-engineering-bootcamp-v2/week-2
 
     buildCommand: pip install -r requirements.txt
