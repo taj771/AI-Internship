@@ -1,0 +1,28 @@
+# Pinned to the versions this service was built and tested against.
+#
+# Pinned rather than floating because the unpinned list already bit us: week-1
+# and week-2 were installed a week apart from identical requirements and got
+# openai 2.53 and 3.3.1 respectively -- a major version apart. It happened to be
+# compatible. Render builds from scratch on every deploy, so an unpinned deploy
+# is a fresh roll of that dice on code nobody is watching, and the failure would
+# appear as a live service breaking rather than a test failing.
+#
+# To upgrade: bump a pin, run the service locally, check /health/pinecone and one
+# grounded /ask, then commit. Not the other way round.
+
+fastapi[standard]==0.141.1
+httpx==0.28.1
+openai==3.3.1
+python-dotenv==1.2.3
+streamlit==1.62.0
+
+# Vector store. The package is `pinecone`; the older `pinecone-client` name is
+# the pre-v3 SDK, and every tutorial written before December 2023 uses an API
+# that no longer exists.
+pinecone==9.1.0
+
+# Just the text splitters, not the whole LangChain framework. We use one class
+# from it -- RecursiveCharacterTextSplitter, the same one the live-session
+# notebook uses -- and installing all of LangChain to get it would pull in a
+# large dependency tree this service never calls.
+langchain-text-splitters==1.1.2

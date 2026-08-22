@@ -1,10 +1,14 @@
-# Render deployment for the Week 1 /ask API.
+# Render deployment for the bootcamp /ask API.
 #
 # Committed rather than clicked into the dashboard so the configuration is
 # recoverable: a service rebuilt from memory six weeks from now is a service
 # with subtly different settings.
 #
 # Deploy with:  Render dashboard -> New -> Blueprint -> pick this repo.
+#
+# Week 2 note: the service name stays week1-ask-api. Renaming it in Render mints
+# a new URL, and the old one -- already submitted for Week 1 -- would stop
+# answering. The name is now historical; rootDir below says what actually runs.
 
 services:
   - type: web
@@ -15,15 +19,18 @@ services:
     # The repo holds several courses; only this folder is the deployable app.
     # Build and start commands run relative to it, which is why they can say
     # "requirements.txt" and "main.py" with no path.
-    rootDir: ai-engineering-bootcamp-v2/week-1
+    #
+    # Week 2 repoints this from week-1 to week-2. week-1/ is frozen at exactly
+    # what was submitted and is still in git; it is simply no longer the thing
+    # being served. week-2/main.py is that same service with retrieval added,
+    # so every Week 1 endpoint still works and answers the same shape.
+    rootDir: ai-engineering-bootcamp-v2/week-2
 
     buildCommand: pip install -r requirements.txt
 
     # 0.0.0.0, not 127.0.0.1: the container must accept connections from
     # outside itself. $PORT is assigned by Render at boot — hardcoding 8000
     # means the health check never finds the app and the deploy hangs.
-    #
-    # main.py is stage 5, the only module whose response carries cost_usd.
     startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
 
     envVars:
@@ -31,8 +38,38 @@ services:
       # here". The key stays out of git; Render injects it at runtime, where
       # load_dotenv() finds no .env, shrugs, and OpenAI() reads the real
       # environment instead. Same code path locally and in production.
+      #
+      # The trap: a sync: false variable left blank in the dashboard still
+      # deploys successfully, and then fails on the first request. That is what
+      # GET /health/pinecone exists to diagnose in one step.
       - key: OPENAI_API_KEY
         sync: false
+
+      # Week 2. The only new secret — Pinecone's key. Everything else below is
+      # configuration, not credentials, so it is written here in full where it
+      # is reviewable and version-controlled.
+      - key: PINECONE_API_KEY
+        sync: false
+
+      # Which index to use. Must match the index that was actually created, and
+      # that index is permanently sized for the embedding model below.
+      - key: PINECONE_INDEX_NAME
+        value: week2-rag
+
+      # The embedding model, named once and used for both storing documents and
+      # searching them. If this ever disagrees with the model the index was
+      # built for, retrieval returns coordinates computed in a different space:
+      # no error anywhere, just results that are quietly meaningless.
+      - key: EMBEDDING_MODEL
+        value: text-embedding-3-small
+
+      # Chunking defaults. Overridable per request on POST /ingest, so these are
+      # the starting point for comparisons rather than a fixed choice.
+      - key: CHUNK_SIZE
+        value: "800"
+
+      - key: CHUNK_OVERLAP
+        value: "100"
 
       # Pinned so a Render default bump cannot change the runtime underneath
       # a working deploy. Matches the local .venv.
