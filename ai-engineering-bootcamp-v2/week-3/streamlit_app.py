@@ -19,7 +19,7 @@ import asyncio
 
 import streamlit as st
 
-from agent import MAX_STEPS, MODEL, audit
+from agent import MAX_STEPS, MODEL, PROVIDER, audit
 
 st.set_page_config(page_title="SEC Claim Auditor", page_icon="🔎", layout="wide")
 
@@ -59,17 +59,21 @@ STEP_STYLE = {
 # --- Sidebar ---
 
 st.sidebar.title("Run settings")
-st.sidebar.write(f"**Model** `{MODEL}`")
+st.sidebar.write("**Framework** Google ADK")
+st.sidebar.write(f"**Engine** `{PROVIDER}` · `{MODEL}`")
 st.sidebar.write(f"**Step cap** {MAX_STEPS}")
+st.sidebar.write("**Tool** `data.sec.gov` — free, public, no key")
 st.sidebar.caption(
-    "Read from .env. No API key is shown here or held by this page — the key is "
-    "read from .env by the agent, which is why this screen is safe to screenshot."
+    "All read from .env. No API key appears on this screen, which is why it is "
+    "safe to screenshot."
 )
 st.sidebar.divider()
 st.sidebar.caption(
-    "Google's free tier allows 20 requests per day **per model**, and one audit "
-    "costs three or four. If a run fails on quota, change GEMINI_MODEL in .env "
-    "to another model — each has its own separate allowance."
+    "The framework is Google ADK either way — same Agent, same tools, same "
+    "trace. The engine is switchable because Gemini's free tier allows twenty "
+    "requests a day per model, roughly five audits, which a public page "
+    "exhausts quickly. Set LLM_PROVIDER=gemini in .env to run it on Google's "
+    "own stack."
 )
 
 

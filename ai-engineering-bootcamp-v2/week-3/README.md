@@ -70,6 +70,35 @@ each model has its own separate allowance. Verified working 2026-08-22:
 `gemini-2.5-flash` is retired for new accounts and returns 404. The course demos
 hardcode it, which is why they fail out of the box.
 
+## The same claim, three engines
+
+The framework is Google ADK throughout — same `Agent`, same tool, same
+instruction, same figures from the SEC. Only the engine behind it changes, via
+ADK's LiteLlm wrapper. `LLM_PROVIDER` and `OPENAI_MODEL` in `.env` select it.
+
+Claim: *"JPMorgan Chase reported total revenue of $132.3 billion in 2022."*
+The correct answer is DEFINITION_MISMATCH: $128.69B is the filed GAAP figure,
+and $132.3B is JPMorgan's real managed-basis revenue, which its own MD&A states
+is a non-GAAP measure.
+
+| Engine | Lookups | Verdict | |
+|---|---|---|---|
+| `gpt-4o-mini` | 1 | CONTRADICTED | wrong |
+| `gpt-4o` | 2, issued together | DEFINITION_MISMATCH | correct |
+| `gemini-3.5-flash` | 2, one after the other | DEFINITION_MISMATCH | correct |
+
+Not OpenAI versus Google — small versus large. Both large models looked for a
+second explanation before ruling; the small one compared two numbers, saw a gap
+and stopped. `gpt-4o` is the default on that evidence.
+
+The two large models also differed in strategy, which is visible only because
+the trace is printed: `gpt-4o` fired both lookups at once without waiting for
+the first result, while Gemini ran them in sequence.
+
+The wider point is the capstone's thesis arriving in the homework by accident.
+Two engines, the same evidence, opposite verdicts, and nothing in the output
+tells a reader which engine produced the one they are looking at.
+
 ## Two failures the trace caught
 
 Both were fixed by editing the instruction text in `agent.py`. Neither needed a

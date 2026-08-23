@@ -27,13 +27,37 @@ from sec_tool import lookup_filed_figure
 # Reads .env so GOOGLE_API_KEY never has to be typed into this file.
 load_dotenv()
 
-# Settable from .env, because the free tier's daily quota is counted *per
-# model*: twenty requests a day for gemini-3.6-flash, and a separate twenty for
-# gemini-3.5-flash. One audit costs three or four of them, so a working
-# afternoon exhausts a model quickly and the only remedy is to use a different
-# one. Making that a one-line change in .env rather than an edit to this file
-# means it can be done mid-demo without touching code.
-MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+# Which engine drives the agent. Set LLM_PROVIDER in .env to "openai" or
+# "gemini".
+#
+# The assignment prefers Google ADK, and this is Google ADK either way — same
+# Agent, same tools, same Runner, same event stream. Only the engine behind it
+# changes, through ADK's own LiteLlm wrapper.
+#
+# The default is openai for one practical reason: Gemini's free tier allows
+# twenty requests per day *per model*, and one audit costs three or four. That
+# is roughly five audits a day before the page starts returning errors, which is
+# not enough to survive a cohort clicking a link. The OpenAI key is already on
+# billing from Week 1 and one audit costs a fraction of a cent.
+#
+# Switching to gemini is a one-line change here, so a run on Google's own stack
+# can be shown on request.
+PROVIDER = os.getenv("LLM_PROVIDER", "openai").strip().lower()
+
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
+
+# MODEL is the plain name, used for display in the terminal and the sidebar.
+# LLM is what the Agent below is actually given: a string for Gemini, which ADK
+# understands natively, or a LiteLlm wrapper for anything else.
+if PROVIDER == "gemini":
+    MODEL = GEMINI_MODEL
+    LLM = GEMINI_MODEL
+else:
+    from google.adk.models.lite_llm import LiteLlm
+
+    MODEL = OPENAI_MODEL
+    LLM = LiteLlm(model=f"openai/{OPENAI_MODEL}")
 
 # The hard stop on the loop. Every "think" is one call to Gemini, so this is
 # both a safety limit and a cost limit — the assignment is explicit that an
@@ -141,7 +165,7 @@ REASONING: <two sentences at most>
 
 root_agent = Agent(
     name="sec_claim_auditor",
-    model=MODEL,
+    model=LLM,
     description="Audits numeric claims about public companies against SEC filings.",
     instruction=INSTRUCTION,
     tools=[lookup_filed_figure],

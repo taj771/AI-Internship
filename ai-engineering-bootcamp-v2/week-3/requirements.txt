@@ -1,6 +1,11 @@
 # Google's Agent Development Kit. This is the whole reason Week 3 needs its own
 # environment — Week 1 and Week 2 run on OpenAI and have no use for it.
-google-adk==2.7.1
+#
+# [extensions] rather than plain google-adk, because it brings in the LiteLlm
+# wrapper. That is what lets the same ADK agent run on OpenAI instead of Gemini
+# — needed here because Gemini's free tier allows only twenty requests per day
+# per model, which is about five audits.
+google-adk[extensions]==2.7.1
 
 # Reads the .env file so the Google API key never has to appear in the code.
 python-dotenv>=1.0.0

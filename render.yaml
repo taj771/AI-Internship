@@ -173,20 +173,40 @@ services:
       --server.headless true
 
     envVars:
+      # Which engine ADK drives. Still Google ADK either way — same Agent, same
+      # tool, same event stream — but Gemini's free tier allows only twenty
+      # requests per day per model, about five audits, which a public page
+      # exhausts in minutes. The OpenAI key is already on billing from Week 1.
+      #
+      # Set this to "gemini" in the dashboard to demonstrate the agent running
+      # on Google's own stack. No redeploy of code is needed.
+      - key: LLM_PROVIDER
+        value: openai
+
+      # gpt-4o, not gpt-4o-mini, on measured evidence: mini made a single
+      # lookup on the JPMorgan managed-basis claim and returned CONTRADICTED,
+      # which is wrong. gpt-4o and gemini-3.5-flash both made two lookups and
+      # both reached DEFINITION_MISMATCH. See week-3/README.md.
+      - key: OPENAI_MODEL
+        value: gpt-4o
+
+      # Same key as week1-ask-api and week2-rag-api. Used only when
+      # LLM_PROVIDER is openai.
+      - key: OPENAI_API_KEY
+        sync: false
+
+      # Used only when LLM_PROVIDER is gemini. Leaving it blank is fine while
+      # the service runs on OpenAI.
       - key: GOOGLE_API_KEY
         sync: false
+
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
 
       # The SEC refuses requests that do not say who is making them. This is a
       # return address rather than a secret, so it is written here in full.
       - key: SEC_USER_AGENT
         value: Tharaka Jayalath taj.aravinda@gmail.com
-
-      # Which Gemini model to use. Free tier allows twenty requests per day per
-      # model and one audit costs three or four, so a public page can exhaust a
-      # model in about six visits. Changing this value in the Render dashboard
-      # moves the service onto a fresh allowance without a redeploy.
-      - key: GEMINI_MODEL
-        value: gemini-3.5-flash
 
       - key: PYTHON_VERSION
         value: "3.12.3"
