@@ -1,0 +1,40 @@
+# Week 4 is Week 3's agent plus an evaluation harness around it. The agent half
+# of this file is copied unchanged from week-3/requirements.txt on purpose: the
+# whole point of the exercise is to measure the agent that was actually shipped,
+# so nothing under it is allowed to move while we measure it. Only the last
+# entry is new.
+
+# Google's Agent Development Kit. This is the whole reason Week 3 needs its own
+# environment — Week 1 and Week 2 run on OpenAI and have no use for it.
+#
+# [extensions] rather than plain google-adk, because it brings in the LiteLlm
+# wrapper. That is what lets the same ADK agent run on OpenAI instead of Gemini
+# — needed here because Gemini's free tier allows only twenty requests per day
+# per model, which is about five audits.
+google-adk[extensions]==2.7.1
+
+# Reads the .env file so the Google API key never has to appear in the code.
+python-dotenv>=1.0.0
+
+# Talks to data.sec.gov. Used by the real tool in Step 5.
+requests>=2.32.0
+
+# The browser UI the assignment requires (Step 8).
+streamlit>=1.35.0
+
+# New in Week 4. Runs the codified checks — the assignment's "Codify" step asks
+# for code-based assertions that return a binary pass/fail with a one-line
+# reason, and pytest is the standard way to write and run those. Nothing the
+# agent does at runtime imports this; it exists only to grade recorded runs.
+pytest>=8.0.0
+
+# Week 5. The Postgres driver for the durable memory store.
+#
+# [binary] ships a precompiled libpq, so neither a laptop nor a Render build
+# needs pg_config and a C toolchain present. Without it the build fails at
+# install time on a clean container, which is the worst place to discover a
+# missing system library.
+#
+# Unused when DATABASE_URL is unset: memory.py imports it lazily and falls back
+# to sqlite3 from the standard library.
+psycopg[binary]>=3.2

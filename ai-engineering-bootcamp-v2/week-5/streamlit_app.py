@@ -1,0 +1,388 @@
+"""
+Browser UI for the SEC Claim Auditor, with durable memory.
+
+Run:  .venv/bin/streamlit run streamlit_app.py
+
+This page deliberately shows the agent's working, not just its answer. A page
+that printed only a verdict would be indistinguishable from Week 2's one-shot
+RAG service — the assignment asks to see Think, Act and Observe, and the whole
+argument that this is an agent rather than a fixed workflow rests on the steps
+being visible.
+
+Unlike the Week 2 UI, this page calls the agent directly rather than over HTTP.
+The agent runs inside this same program, which is why this service holds an API
+key and week 2's UI did not.
+
+WEEK 5 — what this page has to demonstrate, and what it honestly cannot
+
+The Memory tab shows every stored fact with where it came from and whether it is
+trusted, lets a preference be saved, and lets a false fact be planted so the
+refusal can be watched rather than described.
+
+What a button on this page cannot do is restart the process. "Start a new
+session" clears Streamlit's session state, which proves the page is not caching
+anything — a real and necessary check, since a page that simply kept the last
+answer in a variable would look exactly like memory. But the process keeps
+running, so it does not by itself prove the fact reached a disk.
+
+That proof lives in two places that do restart: `remember.py`, where every
+command is a separate process, and `test_memory.py`, which spawns a subprocess,
+lets it die, and reads the fact back. The page says so rather than letting the
+weaker demonstration stand in for the stronger one.
+"""
+
+import asyncio
+
+import streamlit as st
+
+import memory_gate
+from agent import DEFAULT_USER, MAX_STEPS, MODEL, PROVIDER, audit, get_store
+from memory import GLOBAL_SCOPE, KIND_PREFERENCE, KIND_TAG
+
+st.set_page_config(page_title="SEC Claim Auditor", page_icon="🔎", layout="wide")
+
+
+# Claims chosen so that a demo can show more than one outcome without the
+# audience taking it on trust. The first two are cases we verified by hand
+# against data.sec.gov before building anything.
+EXAMPLES = {
+    "Definition mismatch — real number, different basis": (
+        "JPMorgan Chase reported total revenue of $132.3 billion in 2022."
+    ),
+    "Supported — should match the filing": (
+        "Bank of America's total revenue in 2022 was $94.95 billion."
+    ),
+    "Forces a retry — Goldman does not file under 'Revenues'": (
+        "Goldman Sachs had revenue of $47.4 billion in 2022."
+    ),
+    "Contradicted — invented figure": (
+        "JPMorgan Chase earned net income of $200 billion in 2023."
+    ),
+}
+
+VERDICT_STYLE = {
+    "SUPPORTED": ("✅", "#1a7f37"),
+    "CONTRADICTED": ("❌", "#c62828"),
+    "DEFINITION_MISMATCH": ("⚠️", "#b26a00"),
+    "NOT_CHECKABLE": ("❔", "#5f6368"),
+}
+
+STEP_STYLE = {
+    "THINK": ("🧠", "#5b6abf"),
+    "ACT": ("🔧", "#b26a00"),
+    "OBSERVE": ("👁", "#1a7f37"),
+    # Week 5. RECALL and LEARN are trace steps like any other, which is why they
+    # appear here and nowhere else in this file — the existing loop that renders
+    # a trace renders them without knowing what they are.
+    "RECALL": ("🧷", "#7b3fa0"),
+    "LEARN": ("📌", "#7b3fa0"),
+}
+
+SOURCE_LABEL = {
+    "tool_observation": "the SEC returned this during an audit",
+    "user_stated_verified": "a person said it, data.sec.gov confirmed it",
+    "user_stated_unverified": "a person said it and nothing confirmed it",
+    "user_preference": "a person's presentation preference",
+}
+
+
+# --- Sidebar ---
+
+st.sidebar.title("Run settings")
+st.sidebar.write("**Framework** Google ADK")
+st.sidebar.write(f"**Engine** `{PROVIDER}` · `{MODEL}`")
+st.sidebar.write(f"**Step cap** {MAX_STEPS}")
+st.sidebar.write("**Tool** `data.sec.gov` — free, public, no key")
+
+# Which store this run is actually using, named on screen. A page demonstrating
+# durable memory that cannot show *which* store it wrote to is asking to be taken
+# on trust — and on Render's free plan the difference between Postgres and a
+# local file is the difference between remembering and not.
+store = get_store()
+st.sidebar.write(f"**Memory** `{store.backend}`")
+if not store.is_postgres:
+    st.sidebar.warning(
+        "SQLite on local disk. Fine here; on Render's free plan the disk is "
+        "wiped when the service sleeps, so a deployed copy needs DATABASE_URL.",
+        icon="⚠️",
+    )
+
+st.sidebar.caption(
+    "All read from .env. No API key or connection string appears on this screen, "
+    "which is why it is safe to screenshot."
+)
+st.sidebar.divider()
+st.sidebar.caption(
+    "The framework is Google ADK either way — same Agent, same tools, same "
+    "trace. The engine is switchable because Gemini's free tier allows twenty "
+    "requests a day per model, roughly five audits, which a public page "
+    "exhausts quickly. Set LLM_PROVIDER=gemini in .env to run it on Google's "
+    "own stack."
+)
+
+
+# --- Page ---
+
+st.title("🔎 SEC Claim Auditor")
+st.caption(
+    "Paste a claim containing a number about a public company. The agent decides "
+    "what to look up, fetches what the company actually filed with the US SEC, "
+    "and returns a verdict. Every step it takes is shown below — including what "
+    "it remembered from earlier sessions, and what it learned in this one."
+)
+
+audit_tab, memory_tab = st.tabs(["Audit a claim", "🧠 Memory"])
+
+with audit_tab:
+    choice = st.selectbox(
+        "Start from an example, or write your own below", list(EXAMPLES)
+    )
+
+    claim = st.text_area("Claim to audit", value=EXAMPLES[choice], height=90)
+
+    run = st.button("Audit this claim", type="primary")
+
+    if run and claim.strip():
+        with st.spinner("The agent is working — this takes 10 to 20 seconds…"):
+            try:
+                # audit() is asynchronous because ADK waits on the network. Streamlit
+                # runs this script top to bottom with no event loop of its own, so
+                # asyncio.run starts one, runs the audit, and closes it again.
+                answer, trace = asyncio.run(audit(claim))
+                failure = None
+            except Exception as exc:  # noqa: BLE001 - shown to the user, not swallowed
+                answer, trace, failure = None, [], exc
+
+        if failure is not None:
+            # Quota is by far the most likely failure and has a specific remedy, so
+            # it gets its own message rather than a raw traceback the user has to
+            # decode mid-demo.
+            if "RESOURCE_EXHAUSTED" in str(failure) or "429" in str(failure):
+                st.error(
+                    f"**Out of free quota for `{MODEL}`.** Google allows 20 requests "
+                    "per day per model. Open `.env`, set `GEMINI_MODEL` to another "
+                    "model — `gemini-3-flash-preview` or `gemini-flash-lite-latest` "
+                    "— and rerun."
+                )
+            else:
+                st.error(f"**{type(failure).__name__}**")
+            st.code(str(failure)[:1500])
+
+        else:
+            verdict = next(
+                (
+                    line.split(":", 1)[1].strip()
+                    for line in answer.splitlines()
+                    if line.upper().startswith("VERDICT:")
+                ),
+                "",
+            )
+            icon, colour = VERDICT_STYLE.get(verdict, ("•", "#5f6368"))
+
+            left, right = st.columns([1, 1])
+
+            with left:
+                st.subheader("Verdict")
+                if verdict:
+                    st.markdown(
+                        f"<div style='font-size:1.5rem;font-weight:600;color:{colour}'>"
+                        f"{icon} {verdict}</div>",
+                        unsafe_allow_html=True,
+                    )
+                st.code(answer, language="text", wrap_lines=True)
+
+            with right:
+                st.subheader(f"How it got there — {len(trace)} steps, cap {MAX_STEPS}")
+                st.caption(
+                    "ACT is the model asking for the tool, with the exact arguments it "
+                    "chose. OBSERVE is what came back from data.sec.gov. Nothing in "
+                    "the code decides which tag to try; the model does, after reading "
+                    "the previous result."
+                )
+
+                for number, entry in enumerate(trace, start=1):
+                    mark, tint = STEP_STYLE.get(entry["kind"], ("•", "#5f6368"))
+                    st.markdown(
+                        f"<span style='color:{tint};font-weight:600'>"
+                        f"{number}. {mark} {entry['kind']}</span>",
+                        unsafe_allow_html=True,
+                    )
+                    # wrap_lines matters more than it looks. Without it the ACT
+                    # lines scroll off to the right at exactly the wrong point:
+                    # xbrl_tag='Reve… — hiding whether the model asked for Revenues
+                    # or RevenuesNetOfInterestExpense, which is the one detail the
+                    # whole trace exists to show.
+                    st.code(entry["detail"], language="text", wrap_lines=True)
+
+                tool_calls = sum(1 for e in trace if e["kind"] == "ACT")
+                if tool_calls > 1:
+                    st.success(
+                        f"**{tool_calls} separate lookups.** The second was chosen "
+                        "after reading the result of the first — which is the "
+                        "difference between an agent and a fixed workflow."
+                    )
+
+    elif run:
+        st.warning("Type a claim first.")
+
+
+# --- Memory tab --------------------------------------------------------------
+#
+# Everything below reads and writes the same store the agent uses. Nothing here
+# is a display copy: the table is the table, and a fact deleted here is gone from
+# the next audit.
+
+with memory_tab:
+    st.subheader("What this agent remembers between sessions")
+    st.caption(
+        "Memory is not a longer chat history. The conversation above is thrown "
+        "away when the audit returns — that is context. These rows live in a "
+        f"store outside the program (`{store.backend}`) and are read back by "
+        "runs that share nothing with the run that wrote them."
+    )
+
+    facts = store.facts_for(DEFAULT_USER)
+    usable = [f for f in facts if f.is_usable]
+    refused = [f for f in facts if not f.is_usable]
+
+    counts = st.columns(3)
+    counts[0].metric("Facts in use", len(usable))
+    counts[1].metric("Refused (quarantined)", len(refused))
+    counts[2].metric("Times recalled", sum(f.hits for f in facts))
+
+    if not facts:
+        st.info(
+            "Memory is empty. Audit the Goldman Sachs example on the other tab — "
+            "it has to try `Revenues`, be told it is not filed, and recover. That "
+            "recovery is the only thing worth remembering, so it is the only "
+            "thing that gets written."
+        )
+
+    for fact in facts:
+        border = "#1a7f37" if fact.is_usable else "#c62828"
+        badge = "trusted" if fact.is_usable else "QUARANTINED — never shown to the agent"
+
+        with st.container(border=True):
+            head, actions = st.columns([6, 1])
+            with head:
+                st.markdown(
+                    f"<span style='color:{border};font-weight:600'>{badge}</span> "
+                    f"&nbsp;·&nbsp; <code>{fact.kind}</code> "
+                    f"&nbsp;·&nbsp; recalled {fact.hits}×",
+                    unsafe_allow_html=True,
+                )
+                st.markdown(f"**{fact.one_line()}**")
+                st.caption(
+                    f"{SOURCE_LABEL.get(fact.source, fact.source)} · "
+                    f"observed {fact.observed_at} · scope "
+                    + ("shared" if fact.scope == GLOBAL_SCOPE else "this user")
+                )
+                if fact.detail.get("refused_because"):
+                    st.error(f"Refused because: {fact.detail['refused_because']}")
+                if fact.detail.get("verified_against"):
+                    st.caption(f"Verified against: {fact.detail['verified_against']}")
+                if fact.detail.get("learned_after_failing"):
+                    st.caption(
+                        "Learned after failing on: "
+                        + ", ".join(fact.detail["learned_after_failing"])
+                    )
+            with actions:
+                if st.button("Forget", key=f"forget-{fact.scope}-{fact.kind}-{fact.key}"):
+                    store.forget(fact.scope, fact.kind, fact.key)
+                    st.rerun()
+
+    st.divider()
+
+    # --- The two buttons the lab asks for, plus the one that makes them mean
+    # something.
+
+    left, right = st.columns(2)
+
+    with left:
+        st.markdown("#### Save a preference")
+        st.caption(
+            "The only thing stored on a person's word alone. That is not a hole "
+            "in the rule below: a preference changes wording, never a verdict or "
+            "a figure, so the worst a poisoned one achieves is an ugly answer."
+        )
+        with st.form("preference"):
+            name = st.text_input("Name", value="units")
+            value = st.text_input(
+                "Value", value="state every figure in billions to two decimals"
+            )
+            if st.form_submit_button("Save preference", type="primary"):
+                _, said = memory_gate.remember_preference(store, DEFAULT_USER, name, value)
+                st.success(said)
+                st.rerun()
+
+        st.markdown("#### Teach it a company name")
+        st.caption(
+            "resolve_company(\"Coca-Cola\") returns COCA-COLA EUROPACIFIC "
+            "PARTNERS plc — a UK bottler — with no error at all, because a name "
+            "did match a company with that name. Only a person knows which of "
+            "two real companies was meant."
+        )
+        with st.form("alias"):
+            alias = st.text_input("When I say", value="Coca-Cola")
+            target = st.text_input("I mean this filer or ticker", value="KO")
+            if st.form_submit_button("Verify and remember"):
+                fact, said = memory_gate.remember_alias(store, DEFAULT_USER, alias, target)
+                (st.success if fact.is_usable else st.error)(said)
+                st.rerun()
+
+    with right:
+        st.markdown("#### Try to poison it")
+        st.caption(
+            "Assert something false and watch what happens. The assertion is run "
+            "through the same tool the agent uses, against the live SEC endpoint. "
+            "A tag the company does not file is quarantined — recorded and "
+            "visible, never injected into a prompt."
+        )
+        with st.form("poison"):
+            p_company = st.text_input("Company", value="Goldman Sachs")
+            p_tag = st.text_input("Claim it files revenue under", value="TotallyRealTag")
+            p_year = st.number_input("Fiscal year", value=2022, min_value=1995, max_value=2030)
+            if st.form_submit_button("Assert it", type="secondary"):
+                fact, said = memory_gate.remember_tag_assertion(
+                    store, DEFAULT_USER, p_company, p_tag, int(p_year)
+                )
+                if fact.is_usable:
+                    st.success(said)
+                else:
+                    st.error(said)
+                    st.caption(
+                        "A human can teach this agent things. A human cannot "
+                        "teach it things that are false."
+                    )
+                st.rerun()
+
+        st.markdown("#### Start a new session")
+        st.caption(
+            "Clears everything this page is holding — the last answer, the last "
+            "trace, every widget's state. What survives came from the store, not "
+            "from the page."
+        )
+        if st.button("Clear this page's state"):
+            st.session_state.clear()
+            st.rerun()
+
+        st.warning(
+            "**Honest limit.** This button restarts the *session*, not the "
+            "*process*. It proves the page is not caching answers, which is worth "
+            "proving — but the process keeps running, so on its own it does not "
+            "prove anything reached a disk.\n\n"
+            "For that: `remember.py` runs every command in a separate process, "
+            "and `pytest test_memory.py` spawns a subprocess, lets it die, and "
+            "reads the fact back.",
+            icon="⚖️",
+        )
+
+    st.divider()
+    st.caption(
+        "**Never stored: a figure.** Every annual report republishes prior years, "
+        "and restatements mean those values can disagree — see the note in "
+        "`sec_tool.py`. A remembered figure would be right when written and "
+        "silently wrong later, with the agent repeating it as confidently as "
+        "something it had checked. So memory keeps the *tag* — where to look — "
+        "and the number is fetched live every time."
+    )

@@ -31,3 +31,17 @@ env/
 
 # Local scratch (not part of the course repo)
 ai-eng-demo-1/
+
+# Week 5. Local memory stores. The deployed service uses Postgres; these are
+# the SQLite fallback used on a laptop and by the tests, and they hold whatever
+# a developer happened to audit. Committing one would make a stale, personal
+# store look like part of the project.
+*.db
+
+# NOT ignored: memory-demo.jsonl. That is the recorded before/after evidence and
+# it is committed for the same reason week 4 commits traces.jsonl — a claim about
+# how many lookups memory saved should be checkable against the runs it came
+# from, by someone who was not here.
+#
+# Scratch runs made while developing are a different thing.
+smoke.jsonl

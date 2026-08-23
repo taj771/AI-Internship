@@ -248,3 +248,84 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.3"
+
+  # ----------------------------------------------------------------- week 5 ---
+  # The Week 3 auditor again, with durable memory added.
+  #
+  # A separate service rather than a redeploy of week3-sec-auditor, for the
+  # reason set out at the top of this file: on Render the service name is the
+  # public hostname, and week3-sec-auditor.onrender.com is a URL already
+  # submitted. A grader revisiting it should find the thing that was graded.
+  #
+  # THE VARIABLE THAT DECIDES WHETHER THIS ASSIGNMENT PASSES
+  #
+  # DATABASE_URL. Without it the app does not crash — it falls back to SQLite on
+  # the container's local disk, works perfectly for as long as anyone is
+  # watching, and forgets everything the moment the free instance sleeps after
+  # fifteen minutes idle. Every local test would still be green. The deployed
+  # page would quietly fail the one property the week is about.
+  #
+  # That is the same trap this file already documents for a blank sync: false
+  # key, but worse, because a missing key produces an error on the first request
+  # and a missing DATABASE_URL produces a page that looks entirely fine. The
+  # sidebar therefore names the store in use and warns in orange when it is not
+  # Postgres, so a screenshot of this page is self-evidencing: it says which
+  # store the run it is showing actually wrote to.
+  #
+  # The value is a Supabase Postgres connection string, set in the dashboard.
+  # Supabase rather than a Render database because Render's free Postgres expires
+  # after 30 days, and this URL is meant to survive as a portfolio link.
+  #
+  # No migration step: MemoryStore.ensure_schema() runs CREATE TABLE IF NOT
+  # EXISTS on first use, so an empty database is a working database.
+  - type: web
+    name: week5-memory-auditor
+    runtime: python
+    plan: free
+    rootDir: ai-engineering-bootcamp-v2/week-5
+    buildCommand: pip install -r requirements.txt
+    startCommand: >
+      streamlit run streamlit_app.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.headless true
+
+    envVars:
+      # Week 5's addition. Everything else below is carried over from week 3.
+      - key: DATABASE_URL
+        sync: false
+
+      # Who the stored preferences and aliases belong to. There is no login on
+      # this page, so every visitor shares one identity — which is honest for a
+      # demo and is stated in the README rather than hidden. Tag facts are shared
+      # regardless of this value, because the only way to write one is for the
+      # SEC to have returned it.
+      - key: MEMORY_USER_ID
+        value: public-demo
+
+      - key: LLM_PROVIDER
+        value: openai
+
+      # gpt-4o, not gpt-4o-mini, on measured evidence from week 3: mini made a
+      # single lookup on the JPMorgan managed-basis claim and returned
+      # CONTRADICTED, which is wrong.
+      - key: OPENAI_MODEL
+        value: gpt-4o
+
+      - key: OPENAI_API_KEY
+        sync: false
+
+      - key: GOOGLE_API_KEY
+        sync: false
+
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+
+      - key: SEC_USER_AGENT
+        value: Tharaka Jayalath taj.aravinda@gmail.com
+
+      # Pinned to match every other service here. Note that the local venv for
+      # this folder is 3.13, as week 4's is — a drift recorded in week-5's README
+      # under known limits rather than left to be discovered during a build.
+      - key: PYTHON_VERSION
+        value: "3.12.3"
