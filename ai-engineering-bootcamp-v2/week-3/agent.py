@@ -175,7 +175,7 @@ root_agent = Agent(
 # --- Runner ---
 
 
-def _shorten(value, limit: int = 220) -> str:
+def _shorten(value, limit: int = 420) -> str:
     """Trim a value for display without hiding that it was trimmed."""
     text = str(value)
     return text if len(text) <= limit else text[: limit - 1] + "…"

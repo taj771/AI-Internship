@@ -139,7 +139,7 @@ if run and claim.strip():
                     f"{icon} {verdict}</div>",
                     unsafe_allow_html=True,
                 )
-            st.code(answer, language="text")
+            st.code(answer, language="text", wrap_lines=True)
 
         with right:
             st.subheader(f"How it got there — {len(trace)} steps, cap {MAX_STEPS}")
@@ -157,7 +157,12 @@ if run and claim.strip():
                     f"{number}. {mark} {entry['kind']}</span>",
                     unsafe_allow_html=True,
                 )
-                st.code(entry["detail"], language="text")
+                # wrap_lines matters more than it looks. Without it the ACT
+                # lines scroll off to the right at exactly the wrong point:
+                # xbrl_tag='Reve… — hiding whether the model asked for Revenues
+                # or RevenuesNetOfInterestExpense, which is the one detail the
+                # whole trace exists to show.
+                st.code(entry["detail"], language="text", wrap_lines=True)
 
             tool_calls = sum(1 for e in trace if e["kind"] == "ACT")
             if tool_calls > 1:
