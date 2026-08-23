@@ -51,6 +51,10 @@ than retyped, so the baseline cannot quietly drift from what was submitted.
 | `checks.py` | The three code checks, and a CLI |
 | `test_checks.py` | The checks as pytest, plus tests of the checks themselves |
 | `evals_app.py` | The dashboard |
+| `grounding.py` | Path B: the grounding question, the 40-run sample, TPR/TNR |
+| `label_grounding.py` | The labelling bench — 40 binary decisions |
+| `judge.py` | The LLM judge, two prompt versions, cached per model |
+| `judge_notes.md` | The judge write-up: confusion matrices, what it still misses |
 | `taxonomy.md` | The six failure types, counts, ranking, and limits |
 | `traces*.jsonl` | Every recorded run, including the human annotations |
 
@@ -98,6 +102,39 @@ badly from a suggestion list, dropped a restatement, audited a UK bottler —
 need somebody who knows what the numbers mean. That gap is the division of
 labour, not an oversight.
 
+## Path B — a validated LLM judge
+
+The code checks catch four of the eight failures. One of the rest — *does the
+reasoning assert anything the tool results do not support?* — is automated with
+an LLM judge, and the judge is then validated against 40 hand-labelled runs.
+Full write-up in [judge_notes.md](judge_notes.md).
+
+```
+model         prompt    TP  FN  FP  TN     TPR     TNR   agree
+gpt-4o-mini   v1         2   9   2  27    18%     93%     72%
+gpt-4o-mini   v2         3   8   2  27    27%     93%     75%
+gpt-4o        v1         6   5   1  28    55%     97%     85%
+gpt-4o        v2         9   2   0  29    82%    100%     95%
+
+always-GROUNDED                          0%    100%     72%
+```
+
+The last line is the point. A judge that answers GROUNDED to everything — one
+return statement, no model — scores 72% agreement on this set. gpt-4o-mini with
+the obvious prompt scored **exactly that**, while missing 9 of 11 real failures.
+Reported as agreement, it would have shipped.
+
+The prompt refinement helped and the model mattered more: mini with the better
+prompt still scores below gpt-4o with the worse one. gpt-4o with v2 is usable as
+a pre-filter — 82% of unsupported assertions caught, and not one false alarm in
+29 clean runs.
+
+```bash
+.venv/bin/streamlit run label_grounding.py                    # the labelling bench
+.venv/bin/python judge.py --compare                           # both prompts
+JUDGE_MODEL=gpt-4o .venv/bin/python judge.py --compare
+```
+
 ## Honest limits
 
 **The fix cannot be shown to work.** Three repeats each: baseline 15/16/17,
@@ -125,6 +162,16 @@ is a property of this set.
 **Two expected verdicts are contestable.** C09 is graded DEFINITION_MISMATCH and
 CONTRADICTED is defensible. C17's ground truth was never established by hand,
 because every tag tried failed against the wrong company.
+
+**The judge's labels are not independent human ground truth.** They were
+drafted by Claude from the traces and spot-checked by the author, so the rates
+measure whether a smaller model reproduces that analysis rather than whether it
+matches an independent human. Stated again in judge_notes.md, because it caps
+what those numbers can support.
+
+**Eleven positives.** Every TPR is a fraction over 11, so one reclassified run
+moves it 9 points. One label (C03 baseline, "such as a managed basis figure")
+is genuinely borderline and carries that much on its own.
 
 **The pass rates measure two different things and neither is "the" score.**
 The checks say 16/20; a human reading the same runs said 12/20. A suite that

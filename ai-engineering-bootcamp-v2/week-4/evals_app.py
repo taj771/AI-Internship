@@ -26,6 +26,7 @@ conclusion by looking at the same picture.
 from __future__ import annotations
 
 import html
+import json
 from pathlib import Path
 
 import streamlit as st
@@ -215,6 +216,112 @@ def dot_plot(series: dict[str, list[int]], title: str, subtitle: str) -> str:
     return STYLE + "".join(parts)
 
 
+BAR_ROW = 46
+BAR_LEFT = 190
+
+
+def grouped_bars(rows: list[dict], title: str, subtitle: str) -> str:
+    """TPR and TNR per judge configuration, on one shared 0-100% axis.
+
+    Two measures on one chart only because they share a scale and a meaning —
+    both are "percentage of a labelled class handled correctly". A second axis
+    would be the usual way to get this wrong.
+
+    Bars rather than dots here, unlike the run-score chart above, because these
+    are single computed rates rather than repeated observations: there is no
+    spread to hide. A bar is honest about a proportion and dishonest about a
+    distribution.
+    """
+    height = 74 + len(rows) * BAR_ROW + 44
+    plot_right = 700
+    parts = [
+        f'<div class="viz-root"><svg viewBox="0 0 760 {height}" width="100%" '
+        f'role="img" aria-label="{html.escape(title)}">',
+        f'<text x="0" y="18" class="row">{html.escape(title)}</text>',
+        f'<text x="0" y="38">{html.escape(subtitle)}</text>',
+        # Legend: two series, so one is always present.
+        f'<rect x="0" y="52" width="10" height="10" rx="2" fill="var(--series-1)"/>',
+        f'<text x="16" y="61">TPR</text>',
+        f'<rect x="56" y="52" width="10" height="10" rx="2" fill="var(--series-2)"/>',
+        f'<text x="72" y="61">TNR</text>',
+    ]
+
+    def bar_x(fraction: float) -> float:
+        return BAR_LEFT + fraction * (plot_right - BAR_LEFT)
+
+    for tick in (0, 0.25, 0.5, 0.75, 1.0):
+        x = bar_x(tick)
+        parts.append(
+            f'<line x1="{x:.1f}" y1="74" x2="{x:.1f}" y2="{74 + len(rows) * BAR_ROW}" '
+            f'stroke="var(--grid)" stroke-width="1"/>'
+        )
+        parts.append(
+            f'<text x="{x:.1f}" y="{74 + len(rows) * BAR_ROW + 18}" '
+            f'text-anchor="middle" class="tick">{tick:.0%}</text>'
+        )
+
+    for index, row in enumerate(rows):
+        top = 74 + index * BAR_ROW
+        label = f"{row['model']} · {row['version']}"
+        parts.append(f'<text x="0" y="{top + 26}" class="row">{html.escape(label)}</text>')
+
+        # Two thin bars with a 2px surface gap between them, anchored at zero,
+        # rounded only at the data end.
+        for offset, (value, colour) in enumerate(
+            ((row["tpr"], "var(--series-1)"), (row["tnr"], "var(--series-2)"))
+        ):
+            y = top + 8 + offset * 15
+            width = max(bar_x(value) - BAR_LEFT, 0)
+            parts.append(
+                f'<rect x="{BAR_LEFT}" y="{y}" width="{width:.1f}" height="13" '
+                f'rx="4" fill="{colour}"/>'
+            )
+            # Direct label outside the bar end, so a short bar never clips it.
+            parts.append(
+                f'<text x="{bar_x(value) + 8:.1f}" y="{y + 11}" class="tick">'
+                f"{value:.0%}</text>"
+            )
+
+    parts.append("</svg></div>")
+    return STYLE + "".join(parts)
+
+
+@st.cache_data(show_spinner=False)
+def judge_results() -> list[dict]:
+    """Rates per (model, prompt version), read from the cached judgements."""
+    from grounding import load_labels, rates
+
+    cache_path = HERE / "judgements_grounding.jsonl"
+    labels = load_labels()
+    if not cache_path.exists() or not labels:
+        return []
+
+    verdicts: dict[tuple[str, str, str], str] = {}
+    for line in cache_path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            entry = json.loads(line)
+            verdicts[(entry.get("model", ""), entry["version"], entry["key"])] = entry["verdict"]
+
+    combos = sorted({(model, version) for model, version, _ in verdicts})
+    rows = []
+    for model, version in combos:
+        pairs = [
+            (labels[k]["label"], verdicts[(model, version, k)])
+            for k in labels
+            if (model, version, k) in verdicts
+        ]
+        if not pairs:
+            continue
+        rows.append({"model": model, "version": version, **rates(pairs)})
+
+    # Worst first, so the chart reads as a progression: the small model with the
+    # obvious prompt, then each thing that helped. Ordering rows by value is
+    # fine; what must never follow rank is the colour, and here TPR and TNR keep
+    # their hues whatever order the rows land in.
+    rows.sort(key=lambda r: (r["tpr"], r["tnr"]))
+    return rows
+
+
 # --- page -------------------------------------------------------------------
 
 batches = load_batches()
@@ -364,6 +471,82 @@ if st.button("Run the three checks", type="primary"):
         )
     else:
         st.info("No failures in this pass.")
+
+st.divider()
+
+# --- path B: the validated judge --------------------------------------------
+
+st.subheader("Path B — the LLM judge, and whether it can be trusted")
+
+judge_rows = judge_results()
+
+if not judge_rows:
+    st.caption(
+        "No judge runs recorded yet. See judge_notes.md, or run "
+        "`.venv/bin/python judge.py --compare`."
+    )
+else:
+    best = max(judge_rows, key=lambda r: (r["tpr"], r["tnr"]))
+    constant = judge_rows[0]["negatives"] / judge_rows[0]["n"]
+
+    st.caption(
+        "The three code checks catch four of the eight failures found by hand. "
+        "This judge automates one of the rest — whether the reasoning asserts "
+        "anything the tool results do not support — and is validated against 40 "
+        "labelled runs. Full write-up in judge_notes.md."
+    )
+
+    cols = st.columns(4)
+    cols[0].metric("Best judge TPR", f"{best['tpr']:.0%}",
+                   f"{best['model']} · {best['version']}", delta_color="off")
+    cols[1].metric("Best judge TNR", f"{best['tnr']:.0%}",
+                   f"never flagged a clean run" if best["fp"] == 0 else f"{best['fp']} false alarms",
+                   delta_color="off")
+    cols[2].metric("Ungrounded in the set", f"{judge_rows[0]['positives']} of {judge_rows[0]['n']}",
+                   f"{judge_rows[0]['positives'] / judge_rows[0]['n']:.0%} prevalence",
+                   delta_color="off")
+    cols[3].metric("A do-nothing judge scores", f"{constant:.0%}",
+                   "agreement, with 0% TPR", delta_color="off")
+
+    st.warning(
+        f"**Why agreement is never reported alone.** A judge that answers "
+        f"GROUNDED to everything — one return statement, no model — scores "
+        f"**{constant:.0%} agreement** on this set and catches nothing. "
+        f"gpt-4o-mini with the obvious prompt scored exactly that, missing 9 of "
+        f"11 real failures. Reported as agreement, it would have shipped."
+    )
+
+    st.markdown(
+        grouped_bars(judge_rows,
+                     "How much of the failure each judge actually catches",
+                     "TPR: of the runs a human called ungrounded, how many were caught · "
+                     "TNR: of the clean runs, how many were left alone"),
+        unsafe_allow_html=True,
+    )
+
+    st.dataframe(
+        [
+            {
+                "model": r["model"],
+                "prompt": r["version"],
+                "TP": r["tp"], "FN": r["fn"], "FP": r["fp"], "TN": r["tn"],
+                "TPR": f"{r['tpr']:.0%}",
+                "TNR": f"{r['tnr']:.0%}",
+                "agreement": f"{r['agreement']:.0%}",
+            }
+            for r in judge_rows
+        ],
+        hide_index=True,
+        use_container_width=True,
+    )
+    st.caption(
+        "The prompt refinement helped; the model mattered more. gpt-4o-mini "
+        "with the better prompt still scores below gpt-4o with the worse one — "
+        "the same capability gap Week 3 measured when gpt-4o-mini got the "
+        "JPMorgan verdict wrong. Labels were drafted by Claude and spot-checked "
+        "by the author, so these rates measure agreement with that analysis "
+        "rather than independent human ground truth."
+    )
 
 with st.expander("The two abandoned drafts of the rewrite"):
     st.caption(

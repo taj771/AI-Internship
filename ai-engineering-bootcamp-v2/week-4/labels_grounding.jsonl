@@ -1,0 +1,40 @@
+{"key": "baseline/C01", "trace_id": "C01", "source": "baseline", "label": "GROUNDED", "note": "every element — tag, company, year, value — is in the tool result", "labelled_by": "claude-draft"}
+{"key": "baseline/C02", "trace_id": "C02", "source": "baseline", "label": "GROUNDED", "note": "$47.37B and the tag both come from the tool result", "labelled_by": "claude-draft"}
+{"key": "baseline/C03", "trace_id": "C03", "source": "baseline", "label": "UNGROUNDED", "note": "'such as a managed basis figure' — specific knowledge about JPMorgan's reporting; no tool result mentions it. Borderline: the hedge covers whether it explains the gap, not whether managed basis exists", "labelled_by": "claude-draft"}
+{"key": "baseline/C04", "trace_id": "C04", "source": "baseline", "label": "UNGROUNDED", "note": "'no alternative definition explaining this large discrepancy' — one tag tried", "labelled_by": "claude-draft"}
+{"key": "baseline/C05", "trace_id": "C05", "source": "baseline", "label": "GROUNDED", "note": "'only years up to 2018' is exactly annual_years_available_for_this_tag", "labelled_by": "claude-draft"}
+{"key": "baseline/C06", "trace_id": "C06", "source": "baseline", "label": "UNGROUNDED", "note": "'under ANY of the common revenue tags' — three specific tags failed; the generalisation is the agent's", "labelled_by": "claude-draft"}
+{"key": "baseline/C07", "trace_id": "C07", "source": "baseline", "label": "GROUNDED", "note": "a comparison of two figures it holds", "labelled_by": "claude-draft"}
+{"key": "baseline/C08", "trace_id": "C08", "source": "baseline", "label": "GROUNDED", "note": "same", "labelled_by": "claude-draft"}
+{"key": "baseline/C09", "trace_id": "C09", "source": "baseline", "label": "GROUNDED", "note": "wrong verdict, but every statement traces to the tool result. Grounding is not correctness", "labelled_by": "claude-draft"}
+{"key": "baseline/C10", "trace_id": "C10", "source": "baseline", "label": "GROUNDED", "note": "restated flag and both values are in the tool result. Dropping the restatement is a different failure", "labelled_by": "claude-draft"}
+{"key": "baseline/C13", "trace_id": "C13", "source": "baseline", "label": "GROUNDED", "note": "'unlikely to be a rounding difference' is a judgement about the two figures, not an imported fact", "labelled_by": "claude-draft"}
+{"key": "baseline/C14", "trace_id": "C14", "source": "baseline", "label": "GROUNDED", "note": "supported; the unit conversion is arithmetic on a tool figure", "labelled_by": "claude-draft"}
+{"key": "baseline/C15", "trace_id": "C15", "source": "baseline", "label": "GROUNDED", "note": "the tool said no annual figure for Assets; false in the world, faithful to the evidence", "labelled_by": "claude-draft"}
+{"key": "baseline/C16", "trace_id": "C16", "source": "baseline", "label": "GROUNDED", "note": "years available is empty in the tool result", "labelled_by": "claude-draft"}
+{"key": "baseline/C17", "trace_id": "C17", "source": "baseline", "label": "UNGROUNDED", "note": "attributes the finding to 'Coca-Cola' when every tool result names COCA-COLA EUROPACIFIC PARTNERS plc", "labelled_by": "claude-draft"}
+{"key": "baseline/C18", "trace_id": "C18", "source": "baseline", "label": "UNGROUNDED", "note": "'alternative revenue-related tags are available only for previous years' — no alternative was ever tried; the year list belongs to Revenues", "labelled_by": "claude-draft"}
+{"key": "baseline/C19", "trace_id": "C19", "source": "baseline", "label": "UNGROUNDED", "note": "no tool call at all; the entire reasoning is from memory", "labelled_by": "claude-draft"}
+{"key": "baseline/C20", "trace_id": "C20", "source": "baseline", "label": "GROUNDED", "note": "the year list ends at 2025, so 'nothing for 2026 yet' is read off the result", "labelled_by": "claude-draft"}
+{"key": "baseline/C21", "trace_id": "C21", "source": "baseline", "label": "GROUNDED", "note": "no REASONING line at all — nothing asserted, so nothing unsupported. Caught by answer_format instead", "labelled_by": "claude-draft"}
+{"key": "baseline/C22", "trace_id": "C22", "source": "baseline", "label": "GROUNDED", "note": "no REASONING line — same as baseline/C21", "labelled_by": "claude-draft"}
+{"key": "fixed/C01", "trace_id": "C01", "source": "fixed", "label": "GROUNDED", "note": "same, reworded", "labelled_by": "claude-draft"}
+{"key": "fixed/C02", "trace_id": "C02", "source": "fixed", "label": "GROUNDED", "note": "quotes the SEC's own label string, which is in the result", "labelled_by": "claude-draft"}
+{"key": "fixed/C03", "trace_id": "C03", "source": "fixed", "label": "UNGROUNDED", "note": "'no plausible alternative accounting for the difference' — two tags returning the same number does not establish that", "labelled_by": "claude-draft"}
+{"key": "fixed/C04", "trace_id": "C04", "source": "fixed", "label": "UNGROUNDED", "note": "'no plausible alternative definition could match' — same assertion of absence", "labelled_by": "claude-draft"}
+{"key": "fixed/C05", "trace_id": "C05", "source": "fixed", "label": "GROUNDED", "note": "$394.33B is in a tool result; looking up the wrong year is an error but not an unsupported assertion", "labelled_by": "claude-draft"}
+{"key": "fixed/C06", "trace_id": "C06", "source": "fixed", "label": "GROUNDED", "note": "'under THESE tags' — scoped to what was actually tried", "labelled_by": "claude-draft"}
+{"key": "fixed/C07", "trace_id": "C07", "source": "fixed", "label": "GROUNDED", "note": "same", "labelled_by": "claude-draft"}
+{"key": "fixed/C08", "trace_id": "C08", "source": "fixed", "label": "GROUNDED", "note": "same", "labelled_by": "claude-draft"}
+{"key": "fixed/C09", "trace_id": "C09", "source": "fixed", "label": "UNGROUNDED", "note": "'No alternative definition supports the claim' — InvestmentBankingRevenue was in the suggestion list and never tried", "labelled_by": "claude-draft"}
+{"key": "fixed/C10", "trace_id": "C10", "source": "fixed", "label": "GROUNDED", "note": "'different filings show slightly varying figures' is exactly all_reported_values", "labelled_by": "claude-draft"}
+{"key": "fixed/C13", "trace_id": "C13", "source": "fixed", "label": "UNGROUNDED", "note": "'under both Revenues and ANY potentially relevant tags' — the second lookup was one tag that is not filed", "labelled_by": "claude-draft"}
+{"key": "fixed/C14", "trace_id": "C14", "source": "fixed", "label": "GROUNDED", "note": "same", "labelled_by": "claude-draft"}
+{"key": "fixed/C15", "trace_id": "C15", "source": "fixed", "label": "GROUNDED", "note": "same", "labelled_by": "claude-draft"}
+{"key": "fixed/C16", "trace_id": "C16", "source": "fixed", "label": "GROUNDED", "note": "'does file the tag but no annual data' is precisely what no_annual_data means", "labelled_by": "claude-draft"}
+{"key": "fixed/C17", "trace_id": "C17", "source": "fixed", "label": "GROUNDED", "note": "names Coca-Cola Europacific Partners, which is what the tool result says", "labelled_by": "claude-draft"}
+{"key": "fixed/C18", "trace_id": "C18", "source": "fixed", "label": "GROUNDED", "note": "'does not use RevenuesNetOfInterestExpense at all' — a second lookup returned tag_not_filed for exactly that", "labelled_by": "claude-draft"}
+{"key": "fixed/C19", "trace_id": "C19", "source": "fixed", "label": "UNGROUNDED", "note": "same, and the rewrite did not stop it", "labelled_by": "claude-draft"}
+{"key": "fixed/C20", "trace_id": "C20", "source": "fixed", "label": "GROUNDED", "note": "same", "labelled_by": "claude-draft"}
+{"key": "fixed/C21", "trace_id": "C21", "source": "fixed", "label": "GROUNDED", "note": "a judgement about the claim's own vagueness, not an imported fact", "labelled_by": "claude-draft"}
+{"key": "fixed/C22", "trace_id": "C22", "source": "fixed", "label": "GROUNDED", "note": "company_not_found is in the tool result", "labelled_by": "claude-draft"}
