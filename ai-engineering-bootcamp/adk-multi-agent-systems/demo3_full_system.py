@@ -25,7 +25,7 @@ from google.adk.tools.mcp_tool import McpToolset, StdioConnectionParams
 from google.genai import types
 from mcp.client.stdio import StdioServerParameters
 
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-3.6-flash"
 
 # --- Layer 1: Technical Agent (local tools) ---
 

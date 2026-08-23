@@ -13,3 +13,18 @@ dependencies = [
     "streamlit>=1.35.0",
 ]
 
+# Added 2026-08-22 to make `pip install -e .` work at all.
+#
+# The install tool looks at a folder and tries to guess what library it is meant
+# to package up. This folder has five loose scripts sitting side by side
+# (demo1_routing, demo2_mcp, demo3_full_system, streamlit_app, shipping_agent),
+# so the guess is ambiguous — it cannot tell which one is "the library" — and
+# rather than pick wrongly it refuses and stops.
+#
+# The empty list below says: there is no library here to package. Just install
+# the dependencies listed above. That is all we ever wanted from this command;
+# the demos are run directly as scripts (`python demo1_routing.py`), so nothing
+# needs to import them as a package.
+[tool.setuptools]
+py-modules = []
+
