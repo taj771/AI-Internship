@@ -31,7 +31,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from checks import CHECKS, grade_all, summarise
+from checks import CHECKS, grade, grade_all, summarise
 from trace_log import load_records
 
 st.set_page_config(page_title="Evals — SEC Claim Auditor", page_icon="📊", layout="wide")
@@ -328,10 +328,10 @@ batches = load_batches()
 
 st.title("📊 SEC Claim Auditor — evaluation")
 st.caption(
-    "Twenty hand-built claims with SEC figures established by hand, three code "
-    "checks, and every instruction version run three times. Details of the "
-    "claims in claims.py, of the failures in taxonomy.md, of the checks in "
-    "checks.py."
+    "Twenty hand-built claims with SEC figures established by hand before any "
+    "run, three code checks, every instruction version run three times, and an "
+    "LLM judge validated against forty hand labels. Claims in claims.py, "
+    "failures in taxonomy.md, checks in checks.py, judge in judge_notes.md."
 )
 
 if not batches["baseline"] or not batches["fixed"]:
@@ -343,224 +343,293 @@ fixed_scores = [score(records) for _, records in batches["fixed"]]
 base_verdicts = [verdict_score(records) for _, records in batches["baseline"]]
 fixed_verdicts = [verdict_score(records) for _, records in batches["fixed"]]
 
-overlap = max(base_scores) >= min(fixed_scores)
-
-top = st.columns(4)
-top[0].metric("Baseline", f"{sum(base_scores) / len(base_scores):.1f} / 20",
-              f"range {min(base_scores)}–{max(base_scores)}", delta_color="off")
-top[1].metric("After the fix", f"{sum(fixed_scores) / len(fixed_scores):.1f} / 20",
-              f"range {min(fixed_scores)}–{max(fixed_scores)}", delta_color="off")
-top[2].metric("Difference in means",
-              f"{sum(fixed_scores) / len(fixed_scores) - sum(base_scores) / len(base_scores):+.1f}")
-top[3].metric("Baseline's own spread", f"{max(base_scores) - min(base_scores)} runs",
-              "nothing changed between them", delta_color="off")
-
-if overlap:
-    st.warning(
-        "**The ranges overlap, so the fix cannot be called an improvement.** "
-        "Running the unchanged baseline three times scored "
-        f"{', '.join(str(s) for s in base_scores)} out of 20. The gap between "
-        "the two means is smaller than the baseline's variation with nothing "
-        "changed at all — which is what a single before-and-after screenshot "
-        "would have hidden."
-    )
-
-st.markdown(
-    dot_plot({"baseline": base_scores, "fixed": fixed_scores},
-             "Every run drawn separately, not a bar of means",
-             "one dot per pass over the 20 claims · vertical rule marks the mean"),
-    unsafe_allow_html=True,
+# Three tabs rather than one long scroll. The two paths answer different
+# questions — did the fix work, and can the judge be trusted — and the third
+# exists so that a reader can disagree: every number on the first two tabs is
+# computed from runs that can be opened and read there.
+tab_a, tab_b, tab_runs = st.tabs(
+    ["Path A — the fix, and the noise", "Path B — the judge", "Browse the runs"]
 )
 
-st.divider()
 
-# --- the table view, which is also the accessibility fallback ---------------
+# --- Path A -----------------------------------------------------------------
 
-left, right = st.columns([1, 1], gap="large")
+with tab_a:
+    overlap = max(base_scores) >= min(fixed_scores)
 
-with left:
-    st.subheader("Per check")
-    rows = []
-    for name, _ in CHECKS:
-        base = [summarise(grade_all(r))["per_check"][name] for _, r in batches["baseline"]]
-        fixed = [summarise(grade_all(r))["per_check"][name] for _, r in batches["fixed"]]
-        rows.append(
-            {
-                "check": name,
-                "baseline": " ".join(str(v) for v in base),
-                "fixed": " ".join(str(v) for v in fixed),
-            }
+    top = st.columns(4)
+    top[0].metric("Baseline", f"{sum(base_scores) / len(base_scores):.1f} / 20",
+                  f"range {min(base_scores)}–{max(base_scores)}", delta_color="off")
+    top[1].metric("After the fix", f"{sum(fixed_scores) / len(fixed_scores):.1f} / 20",
+                  f"range {min(fixed_scores)}–{max(fixed_scores)}", delta_color="off")
+    top[2].metric(
+        "Difference in means",
+        f"{sum(fixed_scores) / len(fixed_scores) - sum(base_scores) / len(base_scores):+.1f}",
+    )
+    top[3].metric("Baseline's own spread", f"{max(base_scores) - min(base_scores)} runs",
+                  "nothing changed between them", delta_color="off")
+
+    if overlap:
+        st.warning(
+            "**The ranges overlap, so the fix cannot be called an improvement.** "
+            "Running the unchanged baseline three times scored "
+            f"{', '.join(str(s) for s in base_scores)} out of 20. The gap between "
+            "the two means is smaller than the baseline's variation with nothing "
+            "changed at all — which is exactly what a single before-and-after "
+            "screenshot would have hidden."
         )
-    rows.append(
-        {
-            "check": "ALL THREE",
-            "baseline": " ".join(str(v) for v in base_scores),
-            "fixed": " ".join(str(v) for v in fixed_scores),
-        }
-    )
-    rows.append(
-        {
-            "check": "verdict matches expected",
-            "baseline": " ".join(str(v) for v in base_verdicts),
-            "fixed": " ".join(str(v) for v in fixed_verdicts),
-        }
-    )
-    st.dataframe(rows, hide_index=True, use_container_width=True)
-    st.caption("Three repeats per version, each out of 20.")
-
-with right:
-    st.subheader("Which claims are unstable")
-    st.caption(
-        "P and F across the three repeats. A row that is not PPP or FFF flipped "
-        "with nothing changed — that is where the agent is genuinely undecided, "
-        "and where any real fix has to be measured."
-    )
-    _, first_batch = batches["baseline"][0]
-    ids = [record["trace_id"] for record in first_batch]
-    grid = []
-    for tid in ids:
-        row = {"claim": tid}
-        for version in ("baseline", "fixed"):
-            marks = ""
-            for _, records in batches[version]:
-                rec = next(r for r in records if r["trace_id"] == tid)
-                marks += "P" if grade_all([rec])[0]["passed_all"] else "F"
-            row[version] = marks
-        row["stable"] = "" if len(set(row["baseline"] + row["fixed"])) == 1 else "flips"
-        grid.append(row)
-    st.dataframe(grid, hide_index=True, use_container_width=True, height=430)
-
-st.divider()
-
-# --- run the suite on demand ------------------------------------------------
-
-st.subheader("Run the checks")
-st.caption(
-    "The checks read recorded runs and need no model and no network, so this is "
-    "instant and free. Recording new runs is a separate, slower step: "
-    "`.venv/bin/python run_batch.py`."
-)
-
-choice = st.selectbox(
-    "Which recorded pass",
-    [label for version in ("baseline", "fixed") for label, _ in batches[version]],
-)
-
-if st.button("Run the three checks", type="primary"):
-    records = next(
-        recs
-        for version in ("baseline", "fixed")
-        for label, recs in batches[version]
-        if label == choice
-    )
-    graded = grade_all(records)
-    stats = summarise(graded)
-    st.success(f"{stats['passed_all']} of {stats['total']} runs pass all three checks.")
-
-    failures = [
-        (g["trace_id"], name, g["checks"][name]["reason"])
-        for g in graded
-        for name, _ in CHECKS
-        if not g["checks"][name]["passed"]
-    ]
-    if failures:
-        st.dataframe(
-            [{"claim": t, "check": n, "why": why} for t, n, why in failures],
-            hide_index=True,
-            use_container_width=True,
-        )
-    else:
-        st.info("No failures in this pass.")
-
-st.divider()
-
-# --- path B: the validated judge --------------------------------------------
-
-st.subheader("Path B — the LLM judge, and whether it can be trusted")
-
-judge_rows = judge_results()
-
-if not judge_rows:
-    st.caption(
-        "No judge runs recorded yet. See judge_notes.md, or run "
-        "`.venv/bin/python judge.py --compare`."
-    )
-else:
-    best = max(judge_rows, key=lambda r: (r["tpr"], r["tnr"]))
-    constant = judge_rows[0]["negatives"] / judge_rows[0]["n"]
-
-    st.caption(
-        "The three code checks catch four of the eight failures found by hand. "
-        "This judge automates one of the rest — whether the reasoning asserts "
-        "anything the tool results do not support — and is validated against 40 "
-        "labelled runs. Full write-up in judge_notes.md."
-    )
-
-    cols = st.columns(4)
-    cols[0].metric("Best judge TPR", f"{best['tpr']:.0%}",
-                   f"{best['model']} · {best['version']}", delta_color="off")
-    cols[1].metric("Best judge TNR", f"{best['tnr']:.0%}",
-                   f"never flagged a clean run" if best["fp"] == 0 else f"{best['fp']} false alarms",
-                   delta_color="off")
-    cols[2].metric("Ungrounded in the set", f"{judge_rows[0]['positives']} of {judge_rows[0]['n']}",
-                   f"{judge_rows[0]['positives'] / judge_rows[0]['n']:.0%} prevalence",
-                   delta_color="off")
-    cols[3].metric("A do-nothing judge scores", f"{constant:.0%}",
-                   "agreement, with 0% TPR", delta_color="off")
-
-    st.warning(
-        f"**Why agreement is never reported alone.** A judge that answers "
-        f"GROUNDED to everything — one return statement, no model — scores "
-        f"**{constant:.0%} agreement** on this set and catches nothing. "
-        f"gpt-4o-mini with the obvious prompt scored exactly that, missing 9 of "
-        f"11 real failures. Reported as agreement, it would have shipped."
-    )
 
     st.markdown(
-        grouped_bars(judge_rows,
-                     "How much of the failure each judge actually catches",
-                     "TPR: of the runs a human called ungrounded, how many were caught · "
-                     "TNR: of the clean runs, how many were left alone"),
+        dot_plot({"baseline": base_scores, "fixed": fixed_scores},
+                 "Every run drawn separately, not a bar of means",
+                 "one dot per pass over the 20 claims · vertical rule marks the mean"),
         unsafe_allow_html=True,
     )
 
-    st.dataframe(
-        [
-            {
-                "model": r["model"],
-                "prompt": r["version"],
-                "TP": r["tp"], "FN": r["fn"], "FP": r["fp"], "TN": r["tn"],
-                "TPR": f"{r['tpr']:.0%}",
-                "TNR": f"{r['tnr']:.0%}",
-                "agreement": f"{r['agreement']:.0%}",
-            }
-            for r in judge_rows
-        ],
-        hide_index=True,
-        use_container_width=True,
-    )
+    st.divider()
+
+    left, right = st.columns([1, 1], gap="large")
+
+    with left:
+        st.subheader("Per check")
+        rows = []
+        for name, _ in CHECKS:
+            base = [summarise(grade_all(r))["per_check"][name] for _, r in batches["baseline"]]
+            fixed = [summarise(grade_all(r))["per_check"][name] for _, r in batches["fixed"]]
+            rows.append({"check": name,
+                         "baseline": " ".join(str(v) for v in base),
+                         "fixed": " ".join(str(v) for v in fixed)})
+        rows.append({"check": "ALL THREE",
+                     "baseline": " ".join(str(v) for v in base_scores),
+                     "fixed": " ".join(str(v) for v in fixed_scores)})
+        rows.append({"check": "verdict matches expected",
+                     "baseline": " ".join(str(v) for v in base_verdicts),
+                     "fixed": " ".join(str(v) for v in fixed_verdicts)})
+        st.dataframe(rows, hide_index=True, use_container_width=True)
+        st.caption("Three repeats per version, each out of 20.")
+
+    with right:
+        st.subheader("Which claims are unstable")
+        st.caption(
+            "P and F across the three repeats. A row that is not PPP or FFF "
+            "flipped with nothing changed — that is where the agent is "
+            "genuinely undecided, and where any real fix has to be measured."
+        )
+        _, first_batch = batches["baseline"][0]
+        ids = [record["trace_id"] for record in first_batch]
+        grid = []
+        for tid in ids:
+            row = {"claim": tid}
+            for version in ("baseline", "fixed"):
+                marks = ""
+                for _, records in batches[version]:
+                    rec = next(r for r in records if r["trace_id"] == tid)
+                    marks += "P" if grade_all([rec])[0]["passed_all"] else "F"
+                row[version] = marks
+            row["stable"] = "" if len(set(row["baseline"] + row["fixed"])) == 1 else "flips"
+            grid.append(row)
+        st.dataframe(grid, hide_index=True, use_container_width=True, height=430)
+
+    st.divider()
+
+    st.subheader("Run the checks")
     st.caption(
-        "The prompt refinement helped; the model mattered more. gpt-4o-mini "
-        "with the better prompt still scores below gpt-4o with the worse one — "
-        "the same capability gap Week 3 measured when gpt-4o-mini got the "
-        "JPMorgan verdict wrong. Labels were drafted by Claude and spot-checked "
-        "by the author, so these rates measure agreement with that analysis "
-        "rather than independent human ground truth."
+        "The checks read recorded runs and need no model and no network, so this "
+        "is instant and free. Recording new runs is a separate, slower step: "
+        "`.venv/bin/python run_batch.py`."
     )
 
-with st.expander("The two abandoned drafts of the rewrite"):
-    st.caption(
-        "Shown apart from the comparison above and never averaged into it: each "
-        "is a different instruction text, run once. They are here because the "
-        "path to the final wording is part of the result — the first draft broke "
-        "the hardest claim in the set, and one run of each was not enough to "
-        "notice."
+    choice = st.selectbox(
+        "Which recorded pass",
+        [label for version in ("baseline", "fixed") for label, _ in batches[version]],
     )
-    for filename, description in DRAFTS.items():
-        path = HERE / filename
-        if path.exists():
-            records = load_records(path)
-            st.write(
-                f"**{description}** — {score(records)}/20 on the checks, "
-                f"{verdict_score(records)}/20 verdicts, single run"
+
+    if st.button("Run the three checks", type="primary"):
+        records = next(
+            recs
+            for version in ("baseline", "fixed")
+            for label, recs in batches[version]
+            if label == choice
+        )
+        graded = grade_all(records)
+        stats = summarise(graded)
+        st.success(f"{stats['passed_all']} of {stats['total']} runs pass all three checks.")
+
+        failures = [
+            (g["trace_id"], name, g["checks"][name]["reason"])
+            for g in graded
+            for name, _ in CHECKS
+            if not g["checks"][name]["passed"]
+        ]
+        if failures:
+            st.dataframe(
+                [{"claim": t, "check": n, "why": why} for t, n, why in failures],
+                hide_index=True, use_container_width=True,
             )
+        else:
+            st.info("No failures in this pass.")
+
+    with st.expander("The two abandoned drafts of the rewrite"):
+        st.caption(
+            "Shown apart from the comparison above and never averaged into it: "
+            "each is a different instruction text, run once. They are here "
+            "because the path to the final wording is part of the result — the "
+            "first draft broke the hardest claim in the set, and one run of each "
+            "was not enough to notice."
+        )
+        for filename, description in DRAFTS.items():
+            path = HERE / filename
+            if path.exists():
+                records = load_records(path)
+                st.write(
+                    f"**{description}** — {score(records)}/20 on the checks, "
+                    f"{verdict_score(records)}/20 verdicts, single run"
+                )
+
+
+# --- Path B -----------------------------------------------------------------
+
+with tab_b:
+    judge_rows = judge_results()
+
+    if not judge_rows:
+        st.caption(
+            "No judge runs recorded yet. See judge_notes.md, or run "
+            "`.venv/bin/python judge.py --compare`."
+        )
+    else:
+        best = max(judge_rows, key=lambda r: (r["tpr"], r["tnr"]))
+        constant = judge_rows[0]["negatives"] / judge_rows[0]["n"]
+
+        st.caption(
+            "The three code checks catch four of the eight failures found by "
+            "hand. This judge automates one of the rest — whether the reasoning "
+            "asserts anything the tool results do not support — and is validated "
+            "against 40 labelled runs. Full write-up in judge_notes.md."
+        )
+
+        cols = st.columns(4)
+        cols[0].metric("Best judge TPR", f"{best['tpr']:.0%}",
+                       f"{best['model']} · {best['version']}", delta_color="off")
+        cols[1].metric(
+            "Best judge TNR", f"{best['tnr']:.0%}",
+            "never flagged a clean run" if best["fp"] == 0 else f"{best['fp']} false alarms",
+            delta_color="off",
+        )
+        cols[2].metric("Ungrounded in the set",
+                       f"{judge_rows[0]['positives']} of {judge_rows[0]['n']}",
+                       f"{judge_rows[0]['positives'] / judge_rows[0]['n']:.0%} prevalence",
+                       delta_color="off")
+        cols[3].metric("A do-nothing judge scores", f"{constant:.0%}",
+                       "agreement, with 0% TPR", delta_color="off")
+
+        st.warning(
+            f"**Why agreement is never reported alone.** A judge that answers "
+            f"GROUNDED to everything — one return statement, no model — scores "
+            f"**{constant:.0%} agreement** on this set and catches nothing. "
+            f"gpt-4o-mini with the obvious prompt scored exactly that, missing 9 "
+            f"of 11 real failures. Reported as agreement, it would have shipped."
+        )
+
+        st.markdown(
+            grouped_bars(
+                judge_rows,
+                "How much of the failure each judge actually catches",
+                "TPR: of the runs a human called ungrounded, how many were caught · "
+                "TNR: of the clean runs, how many were left alone",
+            ),
+            unsafe_allow_html=True,
+        )
+
+        st.dataframe(
+            [
+                {"model": r["model"], "prompt": r["version"],
+                 "TP": r["tp"], "FN": r["fn"], "FP": r["fp"], "TN": r["tn"],
+                 "TPR": f"{r['tpr']:.0%}", "TNR": f"{r['tnr']:.0%}",
+                 "agreement": f"{r['agreement']:.0%}"}
+                for r in judge_rows
+            ],
+            hide_index=True, use_container_width=True,
+        )
+        st.caption(
+            "The prompt refinement helped; the model mattered more. gpt-4o-mini "
+            "with the better prompt still scores below gpt-4o with the worse "
+            "one — the same capability gap Week 3 measured when gpt-4o-mini got "
+            "the JPMorgan verdict wrong. Labels were drafted by Claude and "
+            "spot-checked by the author, so these rates measure agreement with "
+            "that analysis rather than independent human ground truth."
+        )
+
+
+# --- Browse the runs --------------------------------------------------------
+
+with tab_runs:
+    st.caption(
+        "Every number on the other two tabs comes from these runs. This tab is "
+        "read-only on purpose: the annotation bench writes notes back into the "
+        "trace file, and on a shared server those would be editable by any "
+        "visitor and lost on the next deploy."
+    )
+
+    all_passes = [(label, records)
+                  for version in ("baseline", "fixed")
+                  for label, records in batches[version]]
+
+    pick = st.columns([1, 2])
+    pass_label = pick[0].selectbox("Pass", [label for label, _ in all_passes])
+    records = next(recs for label, recs in all_passes if label == pass_label)
+    claim_id = pick[1].selectbox(
+        "Claim",
+        [r["trace_id"] for r in records],
+        format_func=lambda tid: (
+            f"{tid} — {next(r for r in records if r['trace_id'] == tid)['claim'][:70]}"
+        ),
+    )
+
+    record = next(r for r in records if r["trace_id"] == claim_id)
+    graded = grade(record)
+
+    st.markdown(f"### {record['claim']}")
+
+    meta = st.columns(5)
+    meta[0].metric("Expected", record["expected_verdict"])
+    meta[1].metric("Answered", (record.get("parsed") or {}).get("VERDICT") or "—")
+    meta[2].metric("Lookups", record["n_tool_calls"])
+    meta[3].metric("Seconds", record["duration_s"])
+    meta[4].metric("Checks", f"{sum(1 for c in graded.values() if c['passed'])} / {len(graded)}")
+
+    for name, result in graded.items():
+        (st.success if result["passed"] else st.error)(
+            f"**{name}** — {result['reason']}"
+        )
+
+    if record.get("why_this_claim"):
+        with st.expander("Why this claim is in the set"):
+            st.write(record["why_this_claim"])
+
+    left, right = st.columns([1, 1], gap="large")
+
+    with left:
+        st.markdown("**The answer**")
+        st.code(record.get("answer") or "(no answer)", language="text", wrap_lines=True)
+        if record.get("your_notes"):
+            st.markdown("**What a human said when reading it**")
+            st.info(record["your_notes"])
+            if record.get("your_failure_label"):
+                st.caption(
+                    f"labelled: {record['your_failure_label']} · "
+                    f"{record.get('your_pass_fail', '')}"
+                )
+
+    with right:
+        st.markdown("**Every step it took**")
+        if not record["steps"]:
+            st.warning("No steps — the agent answered without calling anything.")
+        for number, step in enumerate(record["steps"], start=1):
+            mark = {"THINK": "🧠", "ACT": "🔧", "OBSERVE": "👁"}.get(step["kind"], "•")
+            st.markdown(
+                f"**{number}. {mark} {step['kind']}** · turn {step.get('turn', '?')}"
+            )
+            full = step.get("response") or step.get("text")
+            shown = json.dumps(full, indent=1) if isinstance(full, dict) else (full or step["detail"])
+            st.code(shown, language="text", wrap_lines=True)
