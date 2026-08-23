@@ -1,0 +1,19 @@
+# Dependencies for the public evals dashboard, and nothing else.
+#
+# evals_app.py reads recorded runs from the JSONL files in this directory and
+# grades them with checks.py. It never calls a model, never opens a socket, and
+# imports exactly three local modules — evals_app, checks, trace_log — none of
+# which need anything outside the standard library.
+#
+# So the deployed service does not install google-adk, litellm, requests or
+# their dependency trees. That is not only a faster build: a page that cannot
+# reach OpenAI or data.sec.gov cannot spend money or leak a key, however it is
+# poked from the internet. The full requirements.txt stays for local work, where
+# recording new runs does need the agent.
+#
+# Verified by walking the import graph rather than by reading the files:
+#
+#   local modules pulled in : ['checks', 'evals_app', 'trace_log']
+#   third-party needed      : ['streamlit']
+
+streamlit>=1.35.0

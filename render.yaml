@@ -210,3 +210,41 @@ services:
 
       - key: PYTHON_VERSION
         value: "3.12.3"
+
+  # ----------------------------------------------------------------- week 4 ---
+  # The evaluation dashboard for the Week 3 agent: twenty recorded runs, three
+  # code checks, and the before/after comparison of an instruction rewrite.
+  #
+  # NO SECRETS, and that is a property of the program rather than a precaution.
+  # This page reads JSONL files committed alongside it and grades them with
+  # checks.py, which is arithmetic and string matching. It never calls a model
+  # and never opens a socket. There is no key to set here because there is
+  # nothing for a key to unlock — closer to week2-rag-ui than to
+  # week3-sec-auditor, which necessarily holds a key because the agent runs
+  # inside its Streamlit process.
+  #
+  # It also installs requirements-dashboard.txt rather than requirements.txt.
+  # The full list brings in google-adk and litellm for an agent this service
+  # never starts; the slim one is streamlit alone, verified by walking the
+  # import graph. Faster build, and a container with no way to reach OpenAI or
+  # data.sec.gov cannot spend money however it is poked from the internet.
+  #
+  # What is deliberately NOT deployed: open_coding.py, the annotation bench.
+  # It writes the human notes back into traces.jsonl, and on Render the disk is
+  # ephemeral and shared by every visitor — so published notes would be both
+  # editable by strangers and lost on the next deploy. Reading the traces is a
+  # public act; annotating them is not.
+  - type: web
+    name: week4-evals
+    runtime: python
+    plan: free
+    rootDir: ai-engineering-bootcamp-v2/week-4
+    buildCommand: pip install -r requirements-dashboard.txt
+    startCommand: >
+      streamlit run evals_app.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.headless true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.12.3"
