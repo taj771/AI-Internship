@@ -147,3 +147,46 @@ services:
 
       - key: PYTHON_VERSION
         value: "3.12.3"
+
+  # ------------------------------------------------------------------ week 3 ---
+  # The SEC Claim Auditor — a Google ADK agent with a Streamlit front end.
+  #
+  # One service, not two. Weeks 1 and 2 split the API from the UI so that the
+  # page could be public while the keys stayed server-side. That split is not
+  # available here: the agent runs inside the Streamlit process, so this service
+  # necessarily holds GOOGLE_API_KEY. It is set sync: false, so the value lives
+  # in the Render dashboard and never in this file — but the page and the key
+  # are in the same process, and that is a real difference from week 2.
+  #
+  # The tool this agent calls, data.sec.gov, needs no key at all. It is free and
+  # public. The only credential in the whole week is the one for Gemini.
+  - type: web
+    name: week3-sec-auditor
+    runtime: python
+    plan: free
+    rootDir: ai-engineering-bootcamp-v2/week-3
+    buildCommand: pip install -r requirements.txt
+    startCommand: >
+      streamlit run streamlit_app.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.headless true
+
+    envVars:
+      - key: GOOGLE_API_KEY
+        sync: false
+
+      # The SEC refuses requests that do not say who is making them. This is a
+      # return address rather than a secret, so it is written here in full.
+      - key: SEC_USER_AGENT
+        value: Tharaka Jayalath taj.aravinda@gmail.com
+
+      # Which Gemini model to use. Free tier allows twenty requests per day per
+      # model and one audit costs three or four, so a public page can exhaust a
+      # model in about six visits. Changing this value in the Render dashboard
+      # moves the service onto a fresh allowance without a redeploy.
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+
+      - key: PYTHON_VERSION
+        value: "3.12.3"
