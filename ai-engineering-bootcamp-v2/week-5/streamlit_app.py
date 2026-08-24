@@ -283,11 +283,46 @@ audit_tab, memory_tab, flow_tab = st.tabs(
 )
 
 with audit_tab:
+    # "Write my own" last rather than first, so the page still loads with a
+    # working example in the box. A demo that opens on an empty field asks the
+    # visitor to think of a claim before they have seen what one looks like.
+    WRITE_MY_OWN = "✍️  Write my own claim"
+
     choice = st.selectbox(
-        "Start from an example, or write your own below", list(EXAMPLES)
+        "Start from an example, or write your own",
+        list(EXAMPLES) + [WRITE_MY_OWN],
     )
 
-    claim = st.text_area("Claim to audit", value=EXAMPLES[choice], height=90)
+    claim = st.text_area(
+        "Claim to audit",
+        value="" if choice == WRITE_MY_OWN else EXAMPLES[choice],
+        height=90,
+        placeholder="e.g. Wells Fargo reported net income of $19.1 billion in 2023.",
+    )
+
+    if choice == WRITE_MY_OWN:
+        st.caption(
+            "**Name a company, a figure and a fiscal year.** The agent has to "
+            "turn the company into an SEC filer and the figure into an XBRL "
+            "tag, so a claim with no year, or about a private company, has "
+            "nothing to check against."
+        )
+        # Named here rather than left to be discovered, because the failure is
+        # silent and looks like the agent being stupid. Week 4 found it by
+        # calling the tool by hand: _annual_entries keeps only facts spanning
+        # 350-380 days, and a balance-sheet figure has no span at all — the SEC
+        # sends start: null, because total assets is a position on a date and
+        # not a flow over a year. So every Assets and StockholdersEquity lookup
+        # returns no_annual_data for every company in every year, and the
+        # agent's own instruction still recommends those tags.
+        st.warning(
+            "**Known limit: balance-sheet claims cannot be checked.** Total "
+            "assets, equity and cash balances return no data for any company, "
+            "in any year — the tool keeps only figures covering a full year, "
+            "and a balance is a position on a single date. Revenue, net income "
+            "and other flow figures work. See week-4/claims.py.",
+            icon="⚠️",
+        )
 
     run = st.button("Audit this claim", type="primary")
 
