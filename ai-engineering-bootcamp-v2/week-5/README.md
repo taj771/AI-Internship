@@ -265,6 +265,28 @@ file unusually.
 
 ---
 
+## Screenshots
+
+In [`screenshots/`](screenshots/), captured against the deployed page, not a
+local run — the sidebar in every one names the store as
+`Postgres · …pooler.supabase.com`, which is the only thing on screen that
+distinguishes a durable demo from a convincing one.
+
+| File | What it shows |
+|---|---|
+| `01-landing.png` | the page as a visitor finds it |
+| `02-session-a-learns.png` | Morgan Stanley FY2023 — `Revenues` fails, the agent recovers, `LEARN` writes the tag |
+| `03-session-b-recalls.png` | Morgan Stanley FY2024 — `RECALL` first, then **one** lookup. 3 steps against 5 |
+| `04-memory-store.png` | the store: trusted facts with hit counts, and `TotallyRealTag` quarantined with its refusal |
+| `05-how-it-works.png` | the decision graph, with the branches the last run took highlighted |
+
+Morgan Stanley rather than Goldman, and its fact was deleted from the store
+first, so the "before" shot genuinely had nothing to recall. Both figures were
+established by hand against data.sec.gov before the runs (FY2023 $54.14B, FY2024
+$61.76B) so both verdicts are SUPPORTED — a CONTRADICTED verdict makes the
+instruction demand an extra lookup, and the comparison would then show two
+lookups for a reason that has nothing to do with memory.
+
 ## Proving it survives a restart
 
 Three levels, weakest to strongest. They are listed in this order because the
