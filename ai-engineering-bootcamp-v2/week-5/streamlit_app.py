@@ -86,6 +86,153 @@ SOURCE_LABEL = {
 }
 
 
+# --- This run, drawn ---------------------------------------------------------
+#
+# The generic flow diagram in the "How it works" tab shows the decision
+# structure. This one shows a single run through it, with the real arguments and
+# the real results in the boxes — the trace, laid out rather than listed.
+#
+# The list and the graph are built from the same `trace`, so they cannot
+# disagree. That matters more than it sounds: a hand-drawn diagram of a system
+# drifts from the system, and a diagram that drifts is worse than none, because
+# it is believed.
+
+
+def _dot(text: str, width: int = 34) -> str:
+    """Escape a string for a DOT label and wrap it to a readable width.
+
+    Graphviz has no line wrapping of its own — a long label produces one very
+    wide box that pushes the whole graph off the page. Wrapping has to happen
+    here, before the label is written.
+    """
+    text = str(text).replace("\\", "\\\\").replace('"', '\\"')
+    words, lines, current = text.split(), [], ""
+    for word in words:
+        if len(current) + len(word) + 1 > width and current:
+            lines.append(current)
+            current = word
+        else:
+            current = f"{current} {word}".strip()
+    if current:
+        lines.append(current)
+    return "\\n".join(lines) or " "
+
+
+def run_graph_dot(claim: str, trace: list[dict], verdict: str) -> str:
+    """Draw one audit as a graph, using what actually happened in it."""
+    acts = [e for e in trace if e["kind"] == "ACT"]
+    observes = [e for e in trace if e["kind"] == "OBSERVE"]
+    recalls = [e for e in trace if e["kind"] == "RECALL"]
+    learns = [e for e in trace if e["kind"] == "LEARN"]
+
+    ok = 'style=filled fillcolor="#e6f4ea" color="#1a7f37" fontcolor="#12492a"'
+    warn = 'style=filled fillcolor="#fdecea" color="#c62828" fontcolor="#7d1d1d"'
+    mem = 'style=filled fillcolor="#f3e8fb" color="#7b3fa0" fontcolor="#43205c"'
+    tool = 'style=filled fillcolor="#fff4e0" color="#b26a00" fontcolor="#5c3600"'
+    plain = 'style=filled fillcolor="#eef1f8" color="#9aa4bf" fontcolor="#20242e"'
+
+    _, colour = VERDICT_STYLE.get(verdict, ("•", "#5f6368"))
+    verdict_style = (
+        f'style=filled fillcolor="#ffffff" color="{colour}" '
+        f'fontcolor="{colour}" penwidth=2'
+    )
+
+    lines = [
+        "digraph run {",
+        "  rankdir=TB; bgcolor=transparent;",
+        '  node [shape=box fontname="Helvetica" fontsize=10 margin="0.16,0.10"];',
+        '  edge [fontname="Helvetica" fontsize=8 color="#9aa4bf"];',
+        f'  claim [label="CLAIM\\n{_dot(claim, 40)}" {plain}];',
+    ]
+
+    previous = "claim"
+
+    # RECALL — present only when memory had something to say about this claim.
+    if recalls:
+        facts = recalls[0].get("facts", [])
+        detail = _dot(recalls[0]["detail"], 40)
+        lines.append(
+            f'  recall [label="RECALL — from an earlier session\\n{detail}\\n'
+            f'({len(facts)} fact(s), read from the store)" {mem}];'
+        )
+        lines.append(f"  {previous} -> recall;")
+        previous = "recall"
+    else:
+        lines.append(
+            f'  norecall [label="RECALL\\nnothing stored about this company\\n'
+            f'instruction unchanged" {plain}];'
+        )
+        lines.append(f"  {previous} -> norecall;")
+        previous = "norecall"
+
+    # One ACT/OBSERVE pair per lookup, in trace order. Pairing by position
+    # rather than by turn, for the reason set out in memory_gate: this agent
+    # often fires two tags in the same turn.
+    for index, (act, observe) in enumerate(zip(acts, observes), start=1):
+        args = act.get("args") or {}
+        response = observe.get("response") if isinstance(observe.get("response"), dict) else {}
+        status = response.get("status", "?")
+        found = status == "found"
+
+        result = (
+            f"{status} — {response.get('value_readable', '')}"
+            if found
+            else f"{status}\\n{_dot(response.get('detail', ''), 34)}"
+        )
+
+        lines += [
+            f'  act{index} [label="ACT {index}\\n{_dot(args.get("xbrl_tag", "?"))}\\n'
+            f'FY{args.get("fiscal_year", "?")}  ·  {_dot(args.get("company", "?"))}" {tool}];',
+            f'  obs{index} [label="OBSERVE {index}\\n{result}" '
+            f'{ok if found else warn}];',
+            f"  {previous} -> act{index};",
+            f"  act{index} -> obs{index};",
+        ]
+        previous = f"obs{index}"
+
+    lines.append(
+        f'  verdict [label="VERDICT\\n{verdict or "—"}\\n'
+        f'figure fetched live, never remembered" {verdict_style}];'
+    )
+    lines.append(f"  {previous} -> verdict;")
+
+    # LEARN — the write gate's answer for this run.
+    if learns:
+        lines += [
+            f'  learn [label="LEARN — written to the store\\n'
+            f'{_dot(learns[0]["detail"], 40)}" {mem}];',
+            "  verdict -> learn;",
+            '  store [label="memory_facts (Postgres)" shape=cylinder '
+            f"{mem}];",
+            "  learn -> store;",
+            '  store -> next [label="  read by the NEXT session" style=dashed];',
+            '  next [label="a later audit\\nnaming this company" '
+            f"{plain}];",
+        ]
+    else:
+        wasted = sum(
+            1
+            for e in observes
+            if isinstance(e.get("response"), dict)
+            and e["response"].get("status") != "found"
+        )
+        # Stated as what the gate did, not as a guess about why. The common
+        # case is the first one; the second can happen when the failure and the
+        # success were for different metrics, so no single tag was established.
+        why = (
+            "no lookup had to recover —\\nthe first guess worked"
+            if wasted == 0
+            else "a lookup failed, but the gate\\nestablished no tag to keep"
+        )
+        lines += [
+            f'  nolearn [label="WRITE GATE: nothing stored\\n{why}" {plain}];',
+            "  verdict -> nolearn;",
+        ]
+
+    lines.append("}")
+    return "\n".join(lines)
+
+
 # --- Sidebar ---
 
 st.sidebar.title("Run settings")
@@ -230,6 +377,22 @@ with audit_tab:
                         "after reading the result of the first — which is the "
                         "difference between an agent and a fixed workflow."
                     )
+
+            # The same run, drawn. Full width rather than inside the trace
+            # column, because a graph squeezed into half a screen is a graph
+            # nobody reads. Expanded by default: this is the thing worth
+            # screenshotting, and a collapsed panel does not appear in a
+            # screenshot at all.
+            st.divider()
+            with st.expander("🔀 This run, drawn as a graph", expanded=True):
+                st.caption(
+                    "Generated from the trace above, not drawn by hand — so the "
+                    "boxes carry the tags this run actually asked for and the "
+                    "results that actually came back. The two cannot disagree."
+                )
+                st.graphviz_chart(
+                    run_graph_dot(claim, trace, verdict), use_container_width=True
+                )
 
     elif run:
         st.warning("Type a claim first.")
