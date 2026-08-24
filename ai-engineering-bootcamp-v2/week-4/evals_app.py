@@ -347,8 +347,20 @@ fixed_verdicts = [verdict_score(records) for _, records in batches["fixed"]]
 # questions — did the fix work, and can the judge be trusted — and the third
 # exists so that a reader can disagree: every number on the first two tabs is
 # computed from runs that can be opened and read there.
-tab_a, tab_b, tab_runs = st.tabs(
-    ["Path A — the fix, and the noise", "Path B — the judge", "Browse the runs"]
+#
+# A fourth tab was added after Week 4 was submitted, and before it was graded.
+# It draws the pipeline the other three tabs report on. It computes nothing new
+# and changes no number, no check and no recorded run — every figure in it is
+# read from the same data the tabs above already display. It is here because a
+# reader arriving at "the fix is inside the noise" needs to know what produced
+# that sentence, and a diagram answers that faster than three tabs of charts.
+tab_a, tab_b, tab_runs, tab_how = st.tabs(
+    [
+        "Path A — the fix, and the noise",
+        "Path B — the judge",
+        "Browse the runs",
+        "🔀 How the eval works",
+    ]
 )
 
 
@@ -633,3 +645,176 @@ with tab_runs:
             full = step.get("response") or step.get("text")
             shown = json.dumps(full, indent=1) if isinstance(full, dict) else (full or step["detail"])
             st.code(shown, language="text", wrap_lines=True)
+
+
+# --- How the eval works ------------------------------------------------------
+#
+# Added after submission, before grading. Draws the pipeline the tabs above
+# report on, using the numbers they already computed — nothing here recomputes
+# anything, so the diagram cannot drift from the charts.
+#
+# Two graphs, because Path A and Path B fail in different ways and the failures
+# are the point. Path A's is that a difference can sit inside its own noise.
+# Path B's is that a judge can score well on a metric that a return statement
+# also scores well on.
+
+_BOX = 'style=filled fontname="Helvetica" fontsize=10 margin="0.16,0.10"'
+_HAND = 'style=filled fillcolor="#eae4fb" color="#5b3fa0" fontcolor="#2e1d55"'
+_AUTO = 'style=filled fillcolor="#eef1f8" color="#9aa4bf" fontcolor="#20242e"'
+_DATA = 'shape=cylinder style=filled fillcolor="#fff4e0" color="#b26a00" fontcolor="#5c3600"'
+_GOOD = 'style=filled fillcolor="#e6f4ea" color="#1a7f37" fontcolor="#12492a"'
+_BAD = 'style=filled fillcolor="#fdecea" color="#c62828" fontcolor="#7d1d1d"'
+
+
+def _seq(values: list[int]) -> str:
+    return ", ".join(str(v) for v in values)
+
+
+def path_a_dot() -> str:
+    """The Path A pipeline, with this dashboard's own numbers in the boxes."""
+    n_claims = len(batches["baseline"][0][1]) if batches["baseline"] else 0
+    n_runs = sum(len(records) for group in batches.values() for _, records in group)
+    n_batches = sum(len(group) for group in batches.values())
+    overlapping = max(base_scores) >= min(fixed_scores)
+
+    outcome = (
+        (
+            f"OVERLAPPING\\nbaseline spans {min(base_scores)}-{max(base_scores)} on its own.\\n"
+            f"The gap between the two is\\n"
+            f"{sum(fixed_scores)/len(fixed_scores) - sum(base_scores)/len(base_scores):+.1f} — inside it."
+        )
+        if overlapping
+        else "SEPARATED\\nevery fixed run beat every baseline run"
+    )
+
+    return f"""
+digraph patha {{
+  rankdir=TB; bgcolor=transparent;
+  node [shape=box {_BOX}];
+  edge [fontname="Helvetica" fontsize=8 color="#9aa4bf"];
+
+  claims [label="claims.py — {n_claims} claims\\nwritten to BREAK the agent\\nSEC figures established BY HAND\\nbefore any run" {_HAND}];
+  why    [label="so the eval is not\\nmarking its own homework" shape=note {_HAND}];
+  batch  [label="run_batch.py\\nrecords every step,\\nand which turn it belonged to" {_AUTO}];
+  traces [label="traces*.jsonl\\n{n_runs} runs in {n_batches} batches" {_DATA}];
+  read   [label="open_coding.py\\nall {n_claims} read BY HAND\\nbefore inventing categories" {_HAND}];
+  tax    [label="taxonomy.md\\nsix failure types\\n(two found by calling the\\ntool by hand, before the model)" {_HAND}];
+  checks [label="checks.py\\nautomated checks,\\ntested against runs already\\ngraded by hand" {_AUTO}];
+  gap    [label="catch 4 of the 8\\nfailures found by hand.\\nThe rest need someone who\\nknows what the numbers mean" {_BAD}];
+  instr  [label="instructions.py\\nBASELINE vs FIXED\\nselected by env var, so a\\nbaseline stays a baseline" {_AUTO}];
+  reps   [label="THREE reps of EACH\\nnothing changed between them" {_HAND}];
+  nums   [label="baseline  {_seq(base_scores)}\\nfixed     {_seq(fixed_scores)}   (of {n_claims})" {_DATA}];
+  verdict [label="{outcome}" {_BAD if overlapping else _GOOD}];
+
+  claims -> why [style=dashed arrowhead=none];
+  claims -> batch -> traces -> read -> tax;
+  tax -> checks -> gap;
+  tax -> instr -> reps -> nums -> verdict;
+
+  {{rank=same; claims; why;}}
+  {{rank=same; checks; instr;}}
+}}
+"""
+
+
+def path_b_dot(rows: list[dict]) -> str:
+    """The judge validation, and the trivial baseline that makes it mean something."""
+    if not rows:
+        return ""
+
+    worst, best = rows[0], rows[-1]
+    n = best.get("n", 0)
+    negatives = best.get("negatives", 0)
+    positives = best.get("positives", 0)
+    trivial = negatives / n if n else 0.0
+
+    def pct(value) -> str:
+        return f"{value * 100:.0f}%" if value is not None else "—"
+
+    return f"""
+digraph pathb {{
+  rankdir=TB; bgcolor=transparent;
+  node [shape=box {_BOX}];
+  edge [fontname="Helvetica" fontsize=8 color="#9aa4bf"];
+
+  labels [label="{n} runs labelled BY HAND\\n{positives} ungrounded, {negatives} clean" {_HAND}];
+  judge  [label="judge.py\\nsame runs, four configurations\\n(two models x two prompts)" {_AUTO}];
+  bad    [label="{worst['model']} · {worst['version']}\\nTPR {pct(worst['tpr'])}  ·  agreement {pct(worst['agreement'])}" {_BAD}];
+  good   [label="{best['model']} · {best['version']}\\nTPR {pct(best['tpr'])}  ·  agreement {pct(best['agreement'])}" {_GOOD}];
+  triv   [label="BASELINE: always answer GROUNDED\\none return statement, no model\\nTPR 0%  ·  agreement {pct(trivial)}" {_BAD}];
+  lesson [label="Read the first row against the last.\\nA judge that answers GROUNDED to\\neverything scores the same agreement\\nas the small model with the obvious\\nprompt — while missing {positives - round((worst['tpr'] or 0) * positives)} of {positives}\\nreal failures.\\n\\nReport TPR. Never agreement." shape=note {_HAND}];
+
+  labels -> judge;
+  judge -> bad; judge -> good;
+  labels -> triv [label="  compare against"];
+  bad -> lesson [style=dashed arrowhead=none];
+  triv -> lesson [style=dashed arrowhead=none];
+
+  {{rank=same; bad; good; triv;}}
+}}
+"""
+
+
+with tab_how:
+    st.subheader("Path A — how a failure becomes a measured comparison")
+    st.caption(
+        "The numbers in these boxes are read from the same recorded runs the "
+        "other tabs chart, not typed in here. Purple is a step a human did; "
+        "grey is a step code did."
+    )
+    st.graphviz_chart(path_a_dot(), use_container_width=True)
+
+    st.markdown(
+        """
+**Three things this shape is arguing.**
+
+Ground truth is established at the top, by hand, *before* any run. If the
+expected verdicts came from the agent's own answers the evaluation would be
+marking its own homework, and every consistent mistake would score as correct.
+
+The runs are read by hand *before* the failure categories exist. I had a list of
+suspected failures going in. The two worst things I found were not on it — and
+two of them were found by calling the tool by hand, with no model involved at
+all.
+
+The two branches out of `taxonomy.md` do different jobs. Checks turn a failure
+into something that can be re-run; the instruction rewrite tries to remove it.
+Only the right-hand branch is a claim about the agent getting better, and only
+that branch needs repetition to be believed.
+"""
+    )
+
+    st.divider()
+
+    rows = judge_results()
+    if rows:
+        st.subheader("Path B — why a judge needs a baseline before it needs a score")
+        st.caption(
+            "Same reading: every rate is computed from the hand-labelled set, "
+            "not written into the diagram."
+        )
+        st.graphviz_chart(path_b_dot(rows), use_container_width=True)
+
+        st.markdown(
+            """
+The trivial baseline is the whole point of this graph. It is not a model, a
+prompt or a pipeline — it is `return "GROUNDED"`. It scores well on agreement
+for one reason: most runs are clean, so a judge that never raises an alarm is
+right most of the time.
+
+If I had reported agreement, I would have shipped the small model with the
+obvious prompt and believed it worked.
+
+**Judge caveat, carried from the write-up:** the labels were drafted with AI
+help and spot-checked, not produced independently. So these rates measure "does
+a smaller model reproduce this analysis" rather than "does it match a human",
+and with so few positives one reclassified run moves TPR by several points.
+"""
+        )
+
+    st.divider()
+    st.caption(
+        "Added after this week was submitted and before it was graded. It draws "
+        "the pipeline; it computes nothing and changes no recorded run, no check "
+        "and no number. See week-4/README.md."
+    )

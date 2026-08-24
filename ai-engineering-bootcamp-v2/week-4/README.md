@@ -58,6 +58,22 @@ than retyped, so the baseline cannot quietly drift from what was submitted.
 | `taxonomy.md` | The six failure types, counts, ranking, and limits |
 | `traces*.jsonl` | Every recorded run, including the human annotations |
 
+### Added after submission
+
+One tab, `🔀 How the eval works`, was added to `evals_app.py` after this week was
+submitted and before it was graded. It draws the two pipelines the other tabs
+report on — how a failure becomes a measured comparison, and why a judge needs a
+trivial baseline before it needs a score.
+
+It is recorded here rather than folded in silently, because a graded artifact
+that changes without saying so is worse than one that never changed. What it
+does **not** do: recompute anything. Every figure in it is read from the same
+recorded runs the other tabs chart — the run counts, the three-rep scores, the
+overlap verdict, the judge's rates — so the diagram cannot drift from the
+numbers. No claim, check, instruction text or recorded run was touched.
+
+Screenshot: [`screenshots/06-how-the-eval-works.png`](screenshots/06-how-the-eval-works.png).
+
 ## What was found
 
 Six failure types, from reading all twenty runs before any category existed.
