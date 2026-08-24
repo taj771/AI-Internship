@@ -276,6 +276,11 @@ the page is not caching answers in a variable — worth proving, since that woul
 look exactly like memory. Does **not** restart the process, so on its own it
 proves nothing about disk. The page says so on screen.
 
+The **How it works** tab draws the same flow as a graph and highlights the
+branches the last run actually took, read from its trace — so the diagram is
+generated from what executed rather than from what was intended. Before any run
+it is unhighlighted, which is the honest state: nothing has happened yet.
+
 **2. The CLI.** Every `remember.py` invocation is a separate process. Anything
 one command sees that another wrote is memory by definition.
 

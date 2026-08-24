@@ -131,7 +131,9 @@ st.caption(
     "it remembered from earlier sessions, and what it learned in this one."
 )
 
-audit_tab, memory_tab = st.tabs(["Audit a claim", "🧠 Memory"])
+audit_tab, memory_tab, flow_tab = st.tabs(
+    ["Audit a claim", "🧠 Memory", "🔀 How it works"]
+)
 
 with audit_tab:
     choice = st.selectbox(
@@ -150,6 +152,13 @@ with audit_tab:
                 # asyncio.run starts one, runs the audit, and closes it again.
                 answer, trace = asyncio.run(audit(claim))
                 failure = None
+                # Kept so the "How it works" tab can light up the path this run
+                # actually took. In session state rather than in the store,
+                # because it is this page's record of the last thing it did —
+                # context, not memory — and "Start a new session" should clear
+                # it along with everything else the page is holding.
+                st.session_state["last_trace"] = trace
+                st.session_state["last_claim"] = claim
             except Exception as exc:  # noqa: BLE001 - shown to the user, not swallowed
                 answer, trace, failure = None, [], exc
 
@@ -385,4 +394,159 @@ with memory_tab:
         "silently wrong later, with the agent repeating it as confidently as "
         "something it had checked. So memory keeps the *tag* — where to look — "
         "and the number is fetched live every time."
+    )
+
+
+# --- How it works ------------------------------------------------------------
+#
+# A diagram of a system is usually a drawing of what someone intended. This one
+# is generated from the trace of the last run, so the highlighted path is the
+# path that actually executed — the same reason the audit tab shows ACT and
+# OBSERVE rather than a summary of them.
+
+# Node styling. LIVE marks a branch the last run took; DIM is the road not
+# taken. Both are readable on Streamlit's white graph canvas in either theme,
+# which is why the colours are set explicitly rather than left to the default.
+LIVE = 'style="filled,bold" fillcolor="#7b3fa0" fontcolor="white" color="#4a1f66" penwidth=2'
+DIM = 'style="filled" fillcolor="#f2f2f4" fontcolor="#8a8a92" color="#d7d7dc"'
+NEUTRAL = 'style="filled" fillcolor="#eef1f8" fontcolor="#20242e" color="#9aa4bf"'
+DECISION = 'shape=diamond style="filled" fillcolor="#fff4e0" fontcolor="#20242e" color="#d9a441"'
+
+
+def audit_flow_dot(trace: list[dict] | None) -> str:
+    """The audit-time path, with the branches the last run took highlighted."""
+    recalled = bool(trace) and any(e["kind"] == "RECALL" for e in trace)
+    learned = bool(trace) and any(e["kind"] == "LEARN" for e in trace)
+    ran = bool(trace)
+
+    n_acts = sum(1 for e in (trace or []) if e["kind"] == "ACT")
+    n_wasted = sum(
+        1
+        for e in (trace or [])
+        if e["kind"] == "OBSERVE"
+        and isinstance(e.get("response"), dict)
+        and e["response"].get("status") != "found"
+    )
+
+    def style(is_live: bool, base: str = NEUTRAL) -> str:
+        if not ran:
+            return base
+        return LIVE if is_live else DIM
+
+    def edge(is_live: bool) -> str:
+        if not ran:
+            return 'color="#9aa4bf"'
+        return 'color="#7b3fa0" penwidth=2.5' if is_live else 'color="#d7d7dc"'
+
+    return f"""
+digraph audit {{
+  rankdir=TB;
+  bgcolor="transparent";
+  node [shape=box style=filled fontname="Helvetica" fontsize=11 margin="0.18,0.12"];
+  edge [fontname="Helvetica" fontsize=9];
+
+  claim   [label="Claim arrives" {style(ran)}];
+
+  recall  [label="RECALL\\ndoes any stored fact\\nname this company?" {DECISION}];
+  drop    [label="quarantined facts\\ndropped here\\n(never reach the model)" {DIM}];
+  inject  [label="append facts to the\\ninstruction\\n(not to the claim)" {style(recalled)}];
+  plain   [label="instruction unchanged" {style(ran and not recalled)}];
+
+  agent   [label="Agent loop\\nTHINK / ACT / OBSERVE\\n{n_acts} lookup(s), {n_wasted} wasted" {style(ran)}];
+  answer  [label="VERDICT\\nfigure always fetched live" {style(ran)}];
+
+  gate    [label="WRITE GATE\\ndid a lookup succeed AFTER\\nan earlier one failed?" {DECISION}];
+  nostore [label="store nothing\\n(it was guessable)" {style(ran and not learned)}];
+  store   [label="store the TAG\\nnever the figure\\nmax 3 per run" {style(learned)}];
+  db      [label="memory_facts\\n(Postgres)" shape=cylinder {style(ran)}];
+
+  claim  -> recall  [{edge(ran)}];
+  recall -> inject  [label="  yes" {edge(recalled)}];
+  recall -> plain   [label="  no" {edge(ran and not recalled)}];
+  recall -> drop    [label="  untrusted" {edge(False)}];
+  inject -> agent   [{edge(recalled)}];
+  plain  -> agent   [{edge(ran and not recalled)}];
+  agent  -> answer  [{edge(ran)}];
+  answer -> gate    [{edge(ran)}];
+  gate   -> store   [label="  yes" {edge(learned)}];
+  gate   -> nostore [label="  no" {edge(ran and not learned)}];
+  store  -> db      [{edge(learned)}];
+  db     -> recall  [label="  read by the NEXT session\\n  (different process)" style=dashed {edge(recalled)}];
+
+  {{rank=same; inject; plain; drop;}}
+  {{rank=same; store; nostore;}}
+}}
+"""
+
+
+WRITE_GATE_DOT = f"""
+digraph gate {{
+  rankdir=LR;
+  bgcolor="transparent";
+  node [shape=box style=filled fontname="Helvetica" fontsize=11 margin="0.18,0.12"];
+  edge [fontname="Helvetica" fontsize=9];
+
+  human [label="A person asserts\\n\\"X files revenue\\nunder TAG\\"" {NEUTRAL}];
+  check [label="run it through the SAME tool\\nthe agent uses, against\\nthe live SEC endpoint" {DECISION}];
+  ok    [label="trusted\\nstored and injected" style=filled fillcolor="#e6f4ea" fontcolor="#1a7f37" color="#1a7f37"];
+  bad   [label="quarantined\\nstored, visible,\\nNEVER injected" style=filled fillcolor="#fdecea" fontcolor="#c62828" color="#c62828"];
+
+  human -> check;
+  check -> ok  [label="  SEC: found"];
+  check -> bad [label="  SEC: not filed"];
+}}
+"""
+
+
+with flow_tab:
+    trace = st.session_state.get("last_trace")
+
+    st.subheader("What happens on one audit")
+    if trace:
+        st.caption(
+            f"Highlighted in purple: the path the last run actually took, read "
+            f"from its trace. Claim was — *{st.session_state.get('last_claim', '')}*"
+        )
+    else:
+        st.info(
+            "Run an audit on the first tab and this diagram will light up the "
+            "branches that run actually took, rather than the ones it might have."
+        )
+
+    st.graphviz_chart(audit_flow_dot(trace), use_container_width=True)
+
+    st.markdown(
+        """
+**Two things this diagram is making a point about.**
+
+The dashed arrow at the bottom is the only one that crosses a process boundary.
+Everything else happens inside one `audit()` call and dies with it — that is
+context. The dashed arrow is memory: written by a run that has already ended,
+read by one that shares no variables with it.
+
+The write gate has a *no* branch, and most runs take it. A run that guessed the
+right tag first time has taught us nothing, because that guess is already in the
+instruction. Only a run that had to recover knows something a later run cannot
+work out for itself.
+"""
+    )
+
+    st.divider()
+
+    st.subheader("What happens when a person asserts a fact")
+    st.caption(
+        "The other way in. A human can teach this agent things — but the "
+        "assertion is checked against the SEC before it is believed, so a human "
+        "cannot teach it things that are false."
+    )
+    st.graphviz_chart(WRITE_GATE_DOT, use_container_width=True)
+
+    st.markdown(
+        """
+Nothing here inspects the *wording* of the assertion, and that is the point. A
+filter that tried to spot implausible tag names would be guessing, and would be
+wrong about exactly the unusual tags worth remembering — `RevenuesNetOfInterest\
+Expense` looks stranger than `TotallyRealTag`. The check is not "does this look
+real" but "does data.sec.gov return it".
+"""
     )
