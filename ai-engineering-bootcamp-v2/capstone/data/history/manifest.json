@@ -1,0 +1,167 @@
+[
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2011",
+    "period_end": "2011-12-31",
+    "filing_date": "2012-02-29",
+    "source_document": "corp10k2011.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961712000163/corp10k2011.htm",
+    "file": "JPM-2011-mdna.txt",
+    "chars": 530889
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2012",
+    "period_end": "2012-12-31",
+    "filing_date": "2013-02-28",
+    "source_document": "corp10k2012.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961713000221/corp10k2012.htm",
+    "file": "JPM-2012-mdna.txt",
+    "chars": 560274
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2013",
+    "period_end": "2013-12-31",
+    "filing_date": "2014-02-20",
+    "source_document": "corp10k2013.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961714000289/corp10k2013.htm",
+    "file": "JPM-2013-mdna.txt",
+    "chars": 525777
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2014",
+    "period_end": "2014-12-31",
+    "filing_date": "2015-02-24",
+    "source_document": "corp10k2014.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961715000272/corp10k2014.htm",
+    "file": "JPM-2014-mdna.txt",
+    "chars": 462321
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2015",
+    "period_end": "2015-12-31",
+    "filing_date": "2016-02-23",
+    "source_document": "corp10k2015.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961716000902/corp10k2015.htm",
+    "file": "JPM-2015-mdna.txt",
+    "chars": 437084
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2016",
+    "period_end": "2016-12-31",
+    "filing_date": "2017-02-28",
+    "source_document": "corp10k2016.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961717000314/corp10k2016.htm",
+    "file": "JPM-2016-mdna.txt",
+    "chars": 411377
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2017",
+    "period_end": "2017-12-31",
+    "filing_date": "2018-02-27",
+    "source_document": "corp10k2017.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961718000057/corp10k2017.htm",
+    "file": "JPM-2017-mdna.txt",
+    "chars": 412854
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2018",
+    "period_end": "2018-12-31",
+    "filing_date": "2019-02-26",
+    "source_document": "corp10k2018.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961719000054/corp10k2018.htm",
+    "file": "JPM-2018-mdna.txt",
+    "chars": 420309
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2019",
+    "period_end": "2019-12-31",
+    "filing_date": "2020-02-25",
+    "source_document": "corp10k2019.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961720000257/corp10k2019.htm",
+    "file": "JPM-2019-mdna.txt",
+    "chars": 367936
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2020",
+    "period_end": "2020-12-31",
+    "filing_date": "2021-02-23",
+    "source_document": "jpm-20201231.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961721000236/jpm-20201231.htm",
+    "file": "JPM-2020-mdna.txt",
+    "chars": 440482
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2021",
+    "period_end": "2021-12-31",
+    "filing_date": "2022-02-22",
+    "source_document": "jpm-20211231.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961722000272/jpm-20211231.htm",
+    "file": "JPM-2021-mdna.txt",
+    "chars": 398274
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2022",
+    "period_end": "2022-12-31",
+    "filing_date": "2023-02-21",
+    "source_document": "jpm-20221231.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961723000231/jpm-20221231.htm",
+    "file": "JPM-2022-mdna.txt",
+    "chars": 400791
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2023",
+    "period_end": "2023-12-31",
+    "filing_date": "2024-02-16",
+    "source_document": "jpm-20231231.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961724000225/jpm-20231231.htm",
+    "file": "JPM-2023-mdna.txt",
+    "chars": 430149
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2024",
+    "period_end": "2024-12-31",
+    "filing_date": "2025-02-14",
+    "source_document": "jpm-20241231.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000001961725000270/jpm-20241231.htm",
+    "file": "JPM-2024-mdna.txt",
+    "chars": 406267
+  },
+  {
+    "ticker": "JPM",
+    "cik": "0000019617",
+    "fiscal_year": "2025",
+    "period_end": "2025-12-31",
+    "filing_date": "2026-02-13",
+    "source_document": "jpm-20251231.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/jpm-20251231.htm",
+    "file": "JPM-2025-mdna.txt",
+    "chars": 399977
+  }
+]

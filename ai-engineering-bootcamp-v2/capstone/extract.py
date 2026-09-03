@@ -141,11 +141,29 @@ SEGMENTS = {
         r"Fixed Income, Currency and Commodities|FICC|Equities (?:net revenues|revenues)|"
         r"Private banking and lending|Management and other fees)\b"
     ),
+    # Segment names are not stable across years, and treating them as if they
+    # were produces a trend that is really a blind spot. JPMorgan reorganised:
+    # in FY2011 its segments were Investment Bank, Retail Financial Services,
+    # Card Services, Commercial Banking, Treasury & Securities Services and
+    # Asset Management; CCB, CIB and AWM did not exist. A pattern knowing only
+    # the modern names finds zero segment claims in 2011 and about a fifth in
+    # 2025, which looks like management shifting to segment-level disclosure and
+    # is nothing of the kind.
+    #
+    # So every name the filer has used in the covered period is listed. Little
+    # risk of cross-year contamination: a 2011 filing does not say "CCB" and a
+    # 2025 filing does not say "Treasury & Securities Services". The exception
+    # is "Investment Bank", which in modern filings appears only inside
+    # "Commercial & Investment Bank" — hence the lookbehind.
     "JPM": re.compile(
         r"\b(Consumer & Community Banking|CCB|Corporate & Investment Bank|CIB|"
         r"Commercial & Investment Bank|Asset & Wealth Management|AWM|"
         r"Corporate segment|Banking & Payments|Markets & Securities Services|"
-        r"Home Lending|Card Services|Auto\b)"
+        r"Home Lending|Card Services|Auto\b|"
+        r"Retail Financial Services|Treasury & Securities Services|"
+        r"Commercial Banking|Asset Management|Consumer & Business Banking|"
+        r"Mortgage Banking|Corporate/Private Equity"
+        r"|(?<![&d] )Investment Bank\b)"
     ),
 }
 

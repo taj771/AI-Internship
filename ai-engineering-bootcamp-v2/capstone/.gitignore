@@ -5,3 +5,4 @@ __pycache__/
 *.db
 run50.log
 app.log
+feynman_capstone.log

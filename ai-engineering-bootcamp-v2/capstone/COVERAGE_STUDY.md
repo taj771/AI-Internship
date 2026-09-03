@@ -176,3 +176,72 @@ measuring the wrong thing.
 
 Built on a branch. The live URL deploys from `main` and is the mandatory
 deliverable; nothing unfinished touches it.
+
+---
+
+# Stage 1 results
+
+**Run 2026-09-03.** JPMorgan Chase, FY2011–FY2025, 6,655 numeric claims across
+15 filings. No model, no agent, no labels.
+
+FY2010 is missing: its Item 7 heading matches none of the patterns in
+`fetch_filings.py`, and the year was not worth chasing — it is XBRL's first year
+and the noisiest.
+
+| FY | claims / 10k chars | segment share | tag rate | checkable |
+|---|---:|---:|---:|---:|
+| 2011 | 16.9 | 3% | 87% | 53% |
+| 2013 | 16.0 | 6% | 86% | 50% |
+| 2015 | 10.9 | 7% | 79% | 44% |
+| 2017 | 7.9 | 5% | 86% | 50% |
+| 2019 | 6.0 | 15% | 87% | 44% |
+| 2021 | 6.3 | 14% | 85% | 48% |
+| 2023 | 7.4 | 20% | 81% | 44% |
+| 2025 | 7.0 | 19% | 86% | 45% |
+
+**Numeric density more than halved**, 16.9 claims per 10,000 characters to 7.0,
+normalised for document length. The fall happens between FY2013 and FY2019 and
+then flattens.
+
+**Tag availability never moved.** Among claims a single lookup could reach, a
+matching tag with data for that year existed 79–88% of the time throughout, with
+no trend.
+
+**Segment-level claims rose from 3% to about 20%**, and that is the mechanism
+behind the decline in checkable share. Less of the narrative is verifiable than
+in FY2011 — not because the tagging regime weakened, but because the prose moved
+down to segment level, where the public JSON API cannot follow.
+
+## A finding that was retracted before it was reported
+
+The first run showed segment claims rising from **0%** in FY2011 to 20% in
+FY2025, which looked like a clean story about disclosure moving to segment level.
+
+It was an artifact. JPMorgan reorganised: in FY2011 the segments were Investment
+Bank, Retail Financial Services, Card Services, Commercial Banking, Treasury &
+Securities Services and Asset Management. CCB, CIB and AWM did not exist. The
+detector knew only the modern names, so it found no segment claims in 2011 —
+not because there were none, but because it was looking for words that had not
+been coined.
+
+With every name the filer has used in the period, FY2011 is 3%, not 0%. The rise
+is real and smaller.
+
+The general form of this is worth stating, because it will recur in any long
+time series: **a detector tuned on recent documents will report the past as
+empty.** The trend it produces is its own blind spot with a slope on it.
+
+## Honest limits
+
+- **Nothing here says JPMorgan is misleading anyone.** MD&A is not required to be
+  tagged. An unverifiable claim is unverifiable, not false.
+- **`has_tag` means a plausible tag exists**, not the correct one. The pinning is
+  keyword and rarity matching; its precision is unmeasured until stage 2's
+  twenty hand-checked pins.
+- **The segment detector is still a keyword heuristic.** It is now fair across
+  years, but residual asymmetry in how densely each era names its segments cannot
+  be ruled out.
+- **Why the density fell is not established.** It could be regulatory disclosure
+  changes, a house-style shift, or content moving from prose into tables — which
+  this pipeline discards. Measured that it happened, not why.
+- **One filer, one section, fifteen years.** Nothing generalises past that.
