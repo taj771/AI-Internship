@@ -27,7 +27,7 @@ from pathlib import Path
 import streamlit as st
 
 import report as report_mod
-from diagram import comparison_svg
+from diagram import comparison_svg, pipeline_svg
 
 st.set_page_config(page_title="Calibrated Claim Auditor", page_icon="🔍", layout="wide")
 
@@ -45,8 +45,8 @@ st.caption(
     "**Research tooling, not investment advice.** It says *look at this*, never *do this*."
 )
 
-fail_tab, filings_tab, live_tab, study_tab, method_tab = st.tabs(
-    ["Where models fail", "Filing report", "Check a claim", "The study", "How it works"])
+fail_tab, built_tab, filings_tab, live_tab, study_tab = st.tabs(
+    ["Where models fail", "What we built", "Filing report", "Check a claim", "The study"])
 
 
 # --- where models fail ------------------------------------------------------
@@ -328,10 +328,20 @@ with study_tab:
 
 # --- method -----------------------------------------------------------------
 
-with method_tab:
+with built_tab:
     calibration = report_mod.load_json("calibration.json", {})
 
-    st.markdown("### The difference, in one picture")
+    st.markdown("### The pipeline")
+    st.markdown(pipeline_svg(), unsafe_allow_html=True)
+    st.caption(
+        "The animated flow shows the **order**, and the order is the point: "
+        "retrieval happens before the figure is consulted. Reverse it — let the "
+        "number choose the concept — and the agreement you measure afterwards is "
+        "the criterion you selected on, not a finding."
+    )
+
+    st.divider()
+    st.markdown("### Why it has to work this way")
     st.markdown(comparison_svg(), unsafe_allow_html=True)
     st.caption(
         "A general model reads the filing as one text, so it can tell you what "
