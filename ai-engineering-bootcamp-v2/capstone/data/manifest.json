@@ -1,0 +1,50 @@
+[
+  {
+    "ticker": "JPM",
+    "company": "JPMorgan Chase",
+    "cik": "0000019617",
+    "filing_date": "2026-02-13",
+    "fiscal_year": "2025",
+    "period_end": "2025-12-31",
+    "source_document": "jpm-20251231.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/jpm-20251231.htm",
+    "file": "JPM-2025-mdna.txt",
+    "chars": 399977
+  },
+  {
+    "ticker": "BAC",
+    "company": "Bank of America",
+    "cik": "0000070858",
+    "filing_date": "2026-02-25",
+    "fiscal_year": "2025",
+    "period_end": "2025-12-31",
+    "source_document": "bac-20251231.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/70858/000007085826000157/bac-20251231.htm",
+    "file": "BAC-2025-mdna.txt",
+    "chars": 297498
+  },
+  {
+    "ticker": "WFC",
+    "company": "Wells Fargo",
+    "cik": "0000072971",
+    "filing_date": "2026-02-24",
+    "fiscal_year": "2025",
+    "period_end": "2025-12-31",
+    "source_document": "wfc-20251231.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/72971/000007297126000133/wfc-20251231.htm",
+    "file": "WFC-2025-mdna.txt",
+    "chars": 348421
+  },
+  {
+    "ticker": "GS",
+    "company": "Goldman Sachs",
+    "cik": "0000886982",
+    "filing_date": "2026-02-25",
+    "fiscal_year": "2025",
+    "period_end": "2025-12-31",
+    "source_document": "gs-20251231.htm",
+    "source_url": "https://www.sec.gov/Archives/edgar/data/886982/000088698226000091/gs-20251231.htm",
+    "file": "GS-2025-mdna.txt",
+    "chars": 312548
+  }
+]

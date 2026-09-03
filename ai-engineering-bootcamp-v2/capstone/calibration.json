@@ -1,0 +1,87 @@
+{
+  "alpha": 0.03,
+  "features": [
+    {
+      "name": "no_evidence",
+      "gap": 0.6596
+    },
+    {
+      "name": "is_segment",
+      "gap": 0.5048
+    },
+    {
+      "name": "first_tag_failed",
+      "gap": -0.2917
+    }
+  ],
+  "threshold": null,
+  "n_runs": 50,
+  "n_answered": 0,
+  "error_among_answered_IN_SAMPLE": 0.0,
+  "held_out": {
+    "trials": 400,
+    "median_answered_frac": 0.0,
+    "median_error": 0.25,
+    "error_p90": 0.5,
+    "trials_meeting_target": 0.012658227848101266
+  },
+  "operating_curve": [
+    {
+      "alpha": 0.03,
+      "trials": 200,
+      "median_answered_frac": 0.0,
+      "median_error": 0.25,
+      "error_p90": 0.5,
+      "trials_meeting_target": 0.0
+    },
+    {
+      "alpha": 0.05,
+      "trials": 200,
+      "median_answered_frac": 0.0,
+      "median_error": 0.25,
+      "error_p90": 0.5,
+      "trials_meeting_target": 0.0
+    },
+    {
+      "alpha": 0.1,
+      "trials": 200,
+      "median_answered_frac": 0.0,
+      "median_error": 0.25,
+      "error_p90": 0.5,
+      "trials_meeting_target": 0.0
+    },
+    {
+      "alpha": 0.15,
+      "trials": 200,
+      "median_answered_frac": 0.16,
+      "median_error": 0.22649572649572647,
+      "error_p90": 0.4,
+      "trials_meeting_target": 0.034482758620689655
+    },
+    {
+      "alpha": 0.2,
+      "trials": 200,
+      "median_answered_frac": 0.64,
+      "median_error": 0.19999999999999996,
+      "error_p90": 0.41666666666666663,
+      "trials_meeting_target": 0.5470588235294118
+    },
+    {
+      "alpha": 0.25,
+      "trials": 200,
+      "median_answered_frac": 0.72,
+      "median_error": 0.21052631578947367,
+      "error_p90": 0.42619047619047634,
+      "trials_meeting_target": 0.5803108808290155
+    },
+    {
+      "alpha": 0.3,
+      "trials": 200,
+      "median_answered_frac": 0.84,
+      "median_error": 0.2857142857142857,
+      "error_p90": 0.45999999999999996,
+      "trials_meeting_target": 0.5204081632653061
+    }
+  ],
+  "caveat": "Calibrated on 50 runs, 46 of whose labels were rule-drafted rather than established by hand. Conformal assumes exchangeability, which financial filings violate across accounting-standard changes. Not reportable until the labels are redone."
+}

@@ -1,0 +1,6 @@
+.venv/
+.cache/
+__pycache__/
+.env
+*.db
+run50.log
