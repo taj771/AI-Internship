@@ -313,7 +313,5 @@ with method_tab:
 2. Extracts every numeric claim in the prose, one per figure
 3. Looks each one up against the company's filed XBRL data at data.sec.gov
 4. Decides which verdicts are trustworthy enough to show without review
-
-Step 4 is the project. Anyone can build steps 1 to 3.
         """
     )
