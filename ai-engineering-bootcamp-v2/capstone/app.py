@@ -141,11 +141,26 @@ with live_tab:
             )
 
         if not evidence.get("admissible"):
-            st.error(
-                "**No evidence.** The agent answered without consulting any filed "
-                "data, on every attempt. Its verdict is not shown, because an "
-                "answer with nothing behind it is not a finding."
-            )
+            if evidence.get("reason") == "gave_up_early":
+                st.error(
+                    "**It gave up early.** The agent answered NOT_CHECKABLE after "
+                    f"{evidence['tool_calls']} of 3 lookups, while the tool was "
+                    "still offering tags it never tried: "
+                    + ", ".join(f"`{t}`" for t in evidence.get("untried_tags", [])[:3])
+                    + ". Its verdict is withheld, because \"nothing to check\" "
+                    "has not been established by stopping early — and a false "
+                    "NOT_CHECKABLE is the worst error here: a wrong verdict gets "
+                    "argued with, while \"there is nothing to check\" ends the "
+                    "enquiry and a real contradiction goes unreported."
+                )
+            else:
+                st.error(
+                    "**No evidence.** The agent answered without consulting any "
+                    "filed data, on every attempt. Its verdict is not shown, "
+                    "because an answer with nothing behind it is not a finding."
+                )
+            with st.expander("What it said anyway"):
+                st.code(answer or "(nothing)")
         else:
             st.code(answer)
             st.caption(f"{evidence['tool_calls']} lookup(s), {evidence['attempts']} attempt(s)")

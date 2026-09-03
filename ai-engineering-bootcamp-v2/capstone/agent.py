@@ -423,6 +423,65 @@ def evidence_count(trace: list[dict]) -> int:
     return sum(1 for step in trace if step.get("kind") == "ACT")
 
 
+# The instruction gives the agent three lookups. A NOT_CHECKABLE reached before
+# spending them, while the tool was still handing back tags to try, is a run that
+# stopped early rather than a claim that could not be checked.
+LOOKUP_BUDGET = 3
+
+
+def untried_suggestions(trace: list[dict]) -> list[str]:
+    """Tags the tool offered that the run never called."""
+    tried, offered = set(), set()
+    for step in trace:
+        if step.get("kind") == "ACT":
+            args = step.get("args") or {}
+            if args.get("xbrl_tag"):
+                tried.add(args["xbrl_tag"])
+        elif step.get("kind") == "OBSERVE":
+            response = step.get("response")
+            if isinstance(response, dict):
+                offered.update(response.get("tags_this_company_does_file") or [])
+    return sorted(offered - tried)
+
+
+def gave_up_early(answer: str, trace: list[dict]) -> list[str]:
+    """Suggestions left untried behind a NOT_CHECKABLE that had budget to spare.
+
+    THE FAILURE THIS EXISTS TO STOP
+
+    Asked whether Wells Fargo reported net revenues of $58.28 billion for 2025,
+    the agent called Revenues, got no_annual_data along with a list beginning
+    RevenuesNetOfInterestExpense, and answered:
+
+        VERDICT: NOT_CHECKABLE
+        REASONING: Wells Fargo has no filed data for net revenues for 2025.
+
+    Wells Fargo filed $83.70 billion under the first tag on that list. The claim
+    was false — $58.28 billion is Goldman's figure — and the tool reported the
+    contradiction as an absence of data.
+
+    The same agent, on the same shape of task, recovered correctly for Goldman:
+    Revenues failed, it read the list, called RevenuesNetOfInterestExpense, and
+    returned CONTRADICTED on three lookups. Nothing distinguishes the two runs
+    except which way the model went, which is the reliability problem this whole
+    project exists to measure.
+
+    A false NOT_CHECKABLE is the worst error available here. A wrong verdict gets
+    argued with; "there is nothing to check" ends the enquiry, and a real
+    contradiction goes unreported.
+    """
+    verdict = ""
+    for line in (answer or "").splitlines():
+        if line.strip().upper().startswith("VERDICT:"):
+            verdict = line.split(":", 1)[1].strip().upper()
+            break
+    if verdict != "NOT_CHECKABLE":
+        return []
+    if evidence_count(trace) >= LOOKUP_BUDGET:
+        return []
+    return untried_suggestions(trace)
+
+
 async def audit_checked(
     claim: str,
     user_id: str = DEFAULT_USER,
@@ -458,24 +517,41 @@ async def audit_checked(
     make the measured claim different from the one in claims.jsonl, and then
     what was evaluated is no longer what was labelled.
     """
-    answer, trace, calls = "", [], 0
+    answer, trace, calls, untried = "", [], 0, []
 
     for attempt in range(1, attempts + 1):
         answer, trace = await audit(claim, user_id=user_id, store=store, learn=learn)
         calls = evidence_count(trace)
-        if calls:
+        untried = gave_up_early(answer, trace)
+        if calls and not untried:
             return answer, trace, {
                 "admissible": True,
                 "tool_calls": calls,
                 "attempts": attempt,
             }
 
+    if not calls:
+        return answer, trace, {
+            "admissible": False,
+            "tool_calls": 0,
+            "attempts": attempts,
+            "reason": "no_evidence",
+            "detail": (
+                f"Answered with no tool call on all {attempts} attempts. The run "
+                "has no admissible evidence, whatever its verdict says."
+            ),
+        }
+
     return answer, trace, {
         "admissible": False,
-        "tool_calls": 0,
+        "tool_calls": calls,
         "attempts": attempts,
+        "reason": "gave_up_early",
+        "untried_tags": untried[:6],
         "detail": (
-            f"Answered with no tool call on all {attempts} attempts. The run has "
-            "no admissible evidence, whatever its verdict says."
+            f"Answered NOT_CHECKABLE after {calls} of {LOOKUP_BUDGET} lookups "
+            f"while the tool was still offering {len(untried)} untried tags "
+            f"({', '.join(untried[:3])}...). \"Nothing to check\" has not been "
+            "established by stopping early."
         ),
     }
