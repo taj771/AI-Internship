@@ -45,7 +45,8 @@ st.caption(
     "**Research tooling, not investment advice.** It says *look at this*, never *do this*."
 )
 
-filings_tab, live_tab, method_tab = st.tabs(["Filing report", "Check a claim", "How it works"])
+filings_tab, live_tab, study_tab, method_tab = st.tabs(
+    ["Filing report", "Check a claim", "The study", "How it works"])
 
 
 # --- filing report ----------------------------------------------------------
@@ -180,6 +181,91 @@ with live_tab:
         with st.expander("Trace — every step the agent took"):
             for step in trace:
                 st.text(f"{step.get('kind', '?'):8s} {str(step)[:300]}")
+
+
+# --- the study --------------------------------------------------------------
+#
+# Fifteen years of JPMorgan filings, measured without a single hand-labelled
+# verdict. It is here rather than in a paper because the app is the only thing a
+# stranger will open, and a finding that lives only in a repository is a finding
+# nobody reads.
+
+with study_tab:
+    st.markdown("### How much of a bank's own story can be checked?")
+    st.caption(
+        "JPMorgan Chase, Item 7, fiscal years 2011–2025 · 6,655 numeric claims · "
+        "no model, no agent, no hand-labelled answer key."
+    )
+    chart = report_mod.HERE / "coverage_chart.svg"
+    if chart.exists():
+        st.markdown(chart.read_text(encoding="utf-8"), unsafe_allow_html=True)
+
+    c = st.columns(3)
+    c[0].metric("Numeric density, FY2011", "16.9", help="claims per 10,000 characters")
+    c[1].metric("Numeric density, FY2025", "7.0", "−58%", delta_color="off")
+    c[2].metric("Segment-level claims", "3% → 20%", help="FY2011 to FY2025")
+    st.markdown(
+        "**JPMorgan puts less than half as many numbers in its narrative as it did "
+        "in 2011**, normalised for document length. Tag availability never moved "
+        "(79–88% throughout). What changed is that the prose moved down to segment "
+        "level, where the SEC's JSON API strips the dimensions and cannot follow."
+    )
+
+    st.divider()
+    st.markdown("### Figures move, and concepts expire")
+    panel = report_mod.HERE / "stage3_panel.svg"
+    if panel.exists():
+        st.markdown(panel.read_text(encoding="utf-8"), unsafe_allow_html=True)
+    st.markdown(
+        "JPMorgan's filed operating cash flow **changed between filings in four "
+        "consecutive years**. And two concepts stop being filed mid-series — "
+        "`TierOneRiskBasedCapital` ends at the Basel III transition in 2013. Both "
+        "still return HTTP 200 with historical data, so **a dead tag looks exactly "
+        "like a live one.**"
+    )
+    st.info(
+        "This corrects the principle the memory layer was built on. *Store the "
+        "route, not the answer* was right about figures and incomplete about "
+        "routes — **routes expire too**, and unlike a stale figure a dead tag "
+        "fails silently."
+    )
+
+    st.divider()
+    st.markdown("### What actually makes an agent find the right concept")
+    grid = report_mod.load_json("stage4_grid.json", {})
+    if grid:
+        rs = grid.get("results", {})
+        rows = []
+        for key, label in (("no_tools", "model alone, no tools"),
+                           ("tools", "model + SEC lookup tool"),
+                           ("tools_plus_structure", "+ retrieved candidate shortlist")):
+            g = rs.get(key, [])
+            if not g:
+                continue
+            ok = sum(1 for x in g if x["correct"])
+            rows.append({"condition": label, "exact tag": f"{ok}/{len(g)}",
+                         "rate": f"{ok/len(g):.0%}",
+                         "declined": sum(1 for x in g if not x["got"] or x["got"] == "UNKNOWN")})
+        st.dataframe(rows, hide_index=True, use_container_width=True)
+    st.markdown(
+        "Same model, same tool, same budget. **Tool access is the largest single "
+        "effect measured anywhere here — 12% to 70%.** One stage of structure adds "
+        "twenty points on top of it."
+    )
+    st.warning(
+        "**The 90% is an upper bound.** That condition is handed the retrieved "
+        "candidates, and retrieval helped build the test set, so it is advantaged "
+        "by construction. The 12% and the 70% see no retrieval output and stand "
+        "on their own."
+    )
+
+    st.divider()
+    st.caption(
+        "**Limits.** One filer, one section, fifteen years. MD&A is not required "
+        "to be tagged, so an unverifiable claim is unverifiable — not false. "
+        "Nothing here measures how often a company is wrong. Full method, "
+        "retractions and limits in COVERAGE_STUDY.md."
+    )
 
 
 # --- method -----------------------------------------------------------------
