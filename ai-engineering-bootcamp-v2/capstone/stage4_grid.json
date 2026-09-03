@@ -1,0 +1,733 @@
+{
+  "model": "gpt-4o",
+  "n": 40,
+  "results": {
+    "no_tools": [
+      {
+        "id": "JPM-2011-0151",
+        "expected": "InvestmentBankingRevenue",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2011-0455",
+        "expected": "InterestIncomeExpenseNet",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2011-0514",
+        "expected": "InvestmentBankingRevenue",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2011-0809",
+        "expected": "TierOneRiskBasedCapital",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2011-0919",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2011-0920",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2011-0922",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2011-0923",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2011-0925",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2011-0926",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2012-0144",
+        "expected": "InterestExpenseDeposits",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2012-0441",
+        "expected": "InvestmentBankingRevenue",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2012-0870",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2012-0871",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2012-0872",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2012-0873",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2012-0874",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2012-0876",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0877",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2012-0878",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-0139",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0140",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-0141",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0142",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-0143",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-0144",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-0145",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0146",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-0147",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-0456",
+        "expected": "InvestmentBankingRevenue",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-0701",
+        "expected": "AvailableForSaleSecuritiesGrossRealizedGainLossNet",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-0952",
+        "expected": "FinancingReceivableSignificantSales",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-1016",
+        "expected": "LoansAndLeasesReceivableAllowance",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-1141",
+        "expected": "StockRepurchaseProgramRemainingAuthorizedRepurchaseAmount",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2014-0402",
+        "expected": "InvestmentBankingRevenue",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2014-0627",
+        "expected": "AvailableForSaleSecuritiesGrossRealizedGainLossNet",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2014-0906",
+        "expected": "StockRepurchaseProgramRemainingAuthorizedRepurchaseAmount1",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2015-0039",
+        "expected": "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+        "got": "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+        "correct": true
+      },
+      {
+        "id": "JPM-2015-0669",
+        "expected": "StockRepurchaseProgramAuthorizedAmount1",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2015-0670",
+        "expected": "StockRepurchaseProgramRemainingAuthorizedRepurchaseAmount1",
+        "got": "UNKNOWN",
+        "correct": false
+      }
+    ],
+    "tools": [
+      {
+        "id": "JPM-2011-0151",
+        "expected": "InvestmentBankingRevenue",
+        "got": "InvestmentBankingRevenue",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0455",
+        "expected": "InterestIncomeExpenseNet",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2011-0514",
+        "expected": "InvestmentBankingRevenue",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2011-0809",
+        "expected": "TierOneRiskBasedCapital",
+        "got": "TierOneRiskBasedCapital",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0919",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0920",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0922",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0923",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0925",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0926",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0144",
+        "expected": "InterestExpenseDeposits",
+        "got": "INTERESTINCOMEEXPENSENET",
+        "correct": false
+      },
+      {
+        "id": "JPM-2012-0441",
+        "expected": "InvestmentBankingRevenue",
+        "got": "InvestmentBankingRevenue",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0870",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0871",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0872",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0873",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0874",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0876",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0877",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0878",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0139",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0140",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0141",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0142",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0143",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0144",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0145",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0146",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0147",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0456",
+        "expected": "InvestmentBankingRevenue",
+        "got": "InvestmentBankingRevenue",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0701",
+        "expected": "AvailableForSaleSecuritiesGrossRealizedGainLossNet",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-0952",
+        "expected": "FinancingReceivableSignificantSales",
+        "got": "DerivativeAssets",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-1016",
+        "expected": "LoansAndLeasesReceivableAllowance",
+        "got": "FinancingReceivableAllowanceForCreditLosses",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-1141",
+        "expected": "StockRepurchaseProgramRemainingAuthorizedRepurchaseAmount",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2014-0402",
+        "expected": "InvestmentBankingRevenue",
+        "got": "InvestmentBankingRevenue",
+        "correct": true
+      },
+      {
+        "id": "JPM-2014-0627",
+        "expected": "AvailableForSaleSecuritiesGrossRealizedGainLossNet",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2014-0906",
+        "expected": "StockRepurchaseProgramRemainingAuthorizedRepurchaseAmount1",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2015-0039",
+        "expected": "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+        "got": "StockholdersEquity",
+        "correct": false
+      },
+      {
+        "id": "JPM-2015-0669",
+        "expected": "StockRepurchaseProgramAuthorizedAmount1",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2015-0670",
+        "expected": "StockRepurchaseProgramRemainingAuthorizedRepurchaseAmount1",
+        "got": "UNKNOWN",
+        "correct": false
+      }
+    ],
+    "tools_plus_structure": [
+      {
+        "id": "JPM-2011-0151",
+        "expected": "InvestmentBankingRevenue",
+        "got": "InvestmentBankingRevenue",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0455",
+        "expected": "InterestIncomeExpenseNet",
+        "got": "InterestIncomeExpenseNet",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0514",
+        "expected": "InvestmentBankingRevenue",
+        "got": "InvestmentBankingRevenue",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0809",
+        "expected": "TierOneRiskBasedCapital",
+        "got": "TierOneRiskBasedCapital",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0919",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0920",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2011-0922",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0923",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0925",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2011-0926",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0144",
+        "expected": "InterestExpenseDeposits",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2012-0441",
+        "expected": "InvestmentBankingRevenue",
+        "got": "InvestmentBankingRevenue",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0870",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0871",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0872",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0873",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0874",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0876",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0877",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2012-0878",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0139",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0140",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0141",
+        "expected": "NetCashProvidedByUsedInOperatingActivities",
+        "got": "NetCashProvidedByUsedInOperatingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0142",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0143",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0144",
+        "expected": "NetCashProvidedByUsedInInvestingActivities",
+        "got": "NetCashProvidedByUsedInInvestingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0145",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0146",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0147",
+        "expected": "NetCashProvidedByUsedInFinancingActivities",
+        "got": "NetCashProvidedByUsedInFinancingActivities",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0456",
+        "expected": "InvestmentBankingRevenue",
+        "got": "InvestmentBankingRevenue",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-0701",
+        "expected": "AvailableForSaleSecuritiesGrossRealizedGainLossNet",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2013-0952",
+        "expected": "FinancingReceivableSignificantSales",
+        "got": "FinancingReceivableSignificantSales",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-1016",
+        "expected": "LoansAndLeasesReceivableAllowance",
+        "got": "LoansAndLeasesReceivableAllowance",
+        "correct": true
+      },
+      {
+        "id": "JPM-2013-1141",
+        "expected": "StockRepurchaseProgramRemainingAuthorizedRepurchaseAmount",
+        "got": "StockRepurchaseProgramRemainingAuthorizedRepurchaseAmount",
+        "correct": true
+      },
+      {
+        "id": "JPM-2014-0402",
+        "expected": "InvestmentBankingRevenue",
+        "got": "InvestmentBankingRevenue",
+        "correct": true
+      },
+      {
+        "id": "JPM-2014-0627",
+        "expected": "AvailableForSaleSecuritiesGrossRealizedGainLossNet",
+        "got": "UNKNOWN",
+        "correct": false
+      },
+      {
+        "id": "JPM-2014-0906",
+        "expected": "StockRepurchaseProgramRemainingAuthorizedRepurchaseAmount1",
+        "got": "StockRepurchaseProgramRemainingAuthorizedRepurchaseAmount1",
+        "correct": true
+      },
+      {
+        "id": "JPM-2015-0039",
+        "expected": "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+        "got": "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+        "correct": true
+      },
+      {
+        "id": "JPM-2015-0669",
+        "expected": "StockRepurchaseProgramAuthorizedAmount1",
+        "got": "StockRepurchaseProgramAuthorizedAmount1",
+        "correct": true
+      },
+      {
+        "id": "JPM-2015-0670",
+        "expected": "StockRepurchaseProgramRemainingAuthorizedRepurchaseAmount1",
+        "got": "StockRepurchaseProgramRemainingAuthorizedRepurchaseAmount1",
+        "correct": true
+      }
+    ]
+  },
+  "caveat": "Condition 3 is handed retrieval's candidates and retrieval helped construct the test set, so its score is an upper bound. Conditions 1 and 2 are clean."
+}

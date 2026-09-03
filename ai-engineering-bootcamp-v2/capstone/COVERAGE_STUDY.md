@@ -369,3 +369,94 @@ verdict.
 - **Nothing here detects a misstatement.** The verified bucket verifies; the
   review bucket is a queue for a person, and it mixes real disagreements with
   scope differences that are not errors at all.
+
+---
+
+# Stage 3 results — one concept across fifteen years
+
+**Run 2026-09-03.** `stage3_panel.py` → `stage3_panel.svg`.
+
+The plan was two lines per concept, the filed figure against the figure
+management wrote, diverging where they disagree. Stage 2 produced 61 verified
+joins across 3,915 claims, so for any single concept there are a handful of MD&A
+points and not a series. A line through four dots spread over fifteen years
+would be invented data, so the filed value is drawn as a line — it is complete —
+and MD&A appears as individual points where a claim actually verified. Gaps are
+drawn as gaps.
+
+| concept | filed | MD&A points | restated |
+|---|---|---:|---|
+| Cash from operating activities | 2011–2025 | 4 | **2016, 2017, 2018, 2019** |
+| Cash from financing activities | 2011–2025 | 4 | — |
+| Investment banking revenue | 2011–2025 | 4 | 2016, 2017 |
+| Preferred stock dividends | 2011–2025 | 5 | — |
+| Buyback authorised | **2015–2022** | 6 | — |
+| Tier 1 capital | **2011–2013** | 1 | — |
+
+Two things the panel is for.
+
+**Figures move after they are published.** JPMorgan's filed operating cash flow
+changed between filings in four consecutive years. A figure cached in 2016 was
+correct that day and wrong within a year, silently.
+
+**Concepts stop being filed.** `TierOneRiskBasedCapital` ends in 2013, at the
+Basel III transition that replaced the capital definitions;
+`StockRepurchaseProgramAuthorizedAmount1` ends in 2022. Both still return HTTP
+200 with their historical data, so a dead tag is indistinguishable from a live
+one until you look at which years it covers.
+
+That is a correction to the principle week 5 was built on. "Store the route, not
+the answer" was right about figures and incomplete about routes: **routes expire
+too**, predictably, at accounting-standard changes, and unlike a stale figure a
+dead tag fails silently rather than loudly.
+
+One bug caught by looking at the rendering: verified *changes* were being plotted
+against a level axis, putting a correct match visibly off the line where it read
+as a disagreement that was not there. Levels only now.
+
+---
+
+# Stage 4 results — does structure beat tool access
+
+**Run 2026-09-03.** `stage4_grid.py` → `stage4_grid.json`. Forty of the 61
+verified joins, gpt-4o, three conditions, one question: which tag did the
+company file this figure under.
+
+| condition | exact tag | declined |
+|---|---:|---:|
+| model alone, no tools | 5/40 — **12%** | 35 |
+| model + the SEC lookup tool | 28/40 — **70%** | 8 |
+| + the retrieved candidate shortlist | 36/40 — **90%** | 4 |
+
+**The hypothesis was that an agent with full tool access could not reach the
+pipeline's answer. It half held.**
+
+Tool access is the largest single effect in this study: 12% to 70%. An agent
+that can look things up is dramatically better than one reasoning from memory,
+which is the case for having built the Week 3 agent at all.
+
+But one stage of structure adds twenty points on top of full tool access. Same
+model, same tool, same budget — the only difference is being handed the
+candidates retrieval found. So the pipeline is not redundant with the agent; it
+does something the agent cannot do for itself.
+
+The thirty-five declines without tools are their own result, and consistent with
+the earlier citation test: asked for a filed figure it cannot know, the model
+mostly refuses rather than inventing.
+
+## The caveat that travels with the 90%
+
+**Condition 3 is advantaged by construction.** It is handed retrieval's
+candidates, and retrieval helped build the test set, so 90% is an upper bound
+rather than a measurement of skill. Conditions 1 and 2 are clean — neither sees
+retrieval output — so the 12% and the 70% stand on their own.
+
+## Honest limits
+
+- Forty claims, one model, one filer. The 20-point structure margin is inflated
+  and its true size is not established here.
+- The test set is claims where the pipeline already succeeded, so it asks
+  whether an agent can reach an answer known to be reachable — not how either
+  performs on the 80% of claims where no counterpart exists at all.
+- Claude and Gemini were not run: no Anthropic key in this environment, and the
+  Gemini free tier allows about twenty requests a day.
