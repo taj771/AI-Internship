@@ -27,6 +27,7 @@ from pathlib import Path
 import streamlit as st
 
 import report as report_mod
+from diagram import comparison_svg
 
 st.set_page_config(page_title="Calibrated Claim Auditor", page_icon="🔍", layout="wide")
 
@@ -157,6 +158,17 @@ with live_tab:
 
 with method_tab:
     calibration = report_mod.load_json("calibration.json", {})
+
+    st.markdown("### The difference, in one picture")
+    st.markdown(comparison_svg(), unsafe_allow_html=True)
+    st.caption(
+        "A general model reads the filing as one text, so it can tell you what "
+        "the filing **says** — but if the written story and the filed figures "
+        "disagree, it has no way to notice, because it never held them apart. "
+        "This tool keeps them separate and reports where they diverge."
+    )
+
+    st.divider()
     st.markdown(
         """
 ### What it does
