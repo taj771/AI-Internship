@@ -45,9 +45,96 @@ st.caption(
     "**Research tooling, not investment advice.** It says *look at this*, never *do this*."
 )
 
-filings_tab, live_tab, study_tab, method_tab = st.tabs(
-    ["Filing report", "Check a claim", "The study", "How it works"])
+fail_tab, filings_tab, live_tab, study_tab, method_tab = st.tabs(
+    ["Where models fail", "Filing report", "Check a claim", "The study", "How it works"])
 
+
+# --- where models fail ------------------------------------------------------
+#
+# The problem, before any solution. Rows one and two of the stage-4 grid live
+# here; the third row — what fixes it — is held back for "How it works", so a
+# reader meets the difficulty before the answer.
+#
+# A decline is presented as correct behaviour throughout, because it is. The
+# failure worth showing is a confident wrong answer, and there are four of them.
+
+with fail_tab:
+    st.markdown("### Ask a model which figure a company filed. Watch what happens.")
+    st.caption(
+        "40 claims where the correct XBRL concept is known independently. "
+        "One question each: which tag did the company file this under?"
+    )
+
+    grid = report_mod.load_json("stage4_grid.json", {})
+    rs = grid.get("results", {})
+
+    def tally(key):
+        g = rs.get(key, [])
+        ok = sum(1 for x in g if x["correct"])
+        dec = sum(1 for x in g if not x["got"] or x["got"] == "UNKNOWN")
+        return g, ok, dec, len(g) - ok - dec
+
+    if rs:
+        g1, ok1, dec1, wrong1 = tally("no_tools")
+        g2, ok2, dec2, wrong2 = tally("tools")
+
+        left, right = st.columns(2)
+        with left:
+            st.markdown("**A model on its own**")
+            st.metric("correct", f"{ok1}/{len(g1)}", f"{ok1/len(g1):.0%}", delta_color="off")
+            st.caption(f"{dec1} declined · {wrong1} confidently wrong")
+            st.info(
+                "**It almost always refuses.** It has no way to know what a "
+                "company filed, and it says so. That is the correct answer, and "
+                "it is also useless — you still have to go and look."
+            )
+        with right:
+            st.markdown("**The same model, with a live SEC lookup tool**")
+            st.metric("correct", f"{ok2}/{len(g2)}", f"{ok2/len(g2):.0%}", delta_color="off")
+            st.caption(f"{dec2} declined · {wrong2} confidently wrong")
+            st.warning(
+                f"**Much better — and still wrong or silent on {len(g2)-ok2} of "
+                f"{len(g2)}.** Giving it the data is not the same as it finding "
+                "the right number."
+            )
+
+        st.divider()
+        st.markdown("#### The failures that matter are the confident ones")
+        wrong = [x for x in g2 if not x["correct"] and x["got"] and x["got"] != "UNKNOWN"]
+        if wrong:
+            st.dataframe(
+                [{"the concept the sentence meant": w["expected"],
+                  "what the model answered": w["got"]} for w in wrong],
+                hide_index=True, use_container_width=True)
+        st.markdown(
+            "Look at the last row. `StockholdersEquity` and "
+            "`StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest` "
+            "are one qualifying phrase apart and hold **different numbers**. "
+            "Accounting distinctions live in exactly those words, and a model "
+            "reaching for the shorter, more familiar name gets a real figure for "
+            "the wrong thing."
+        )
+
+    st.divider()
+    st.markdown("#### And sometimes the source itself is invented")
+    st.markdown(
+        "Asked for JPMorgan's CCB noninterest revenue **and the tag it was filed "
+        "under**, a general model returned:"
+    )
+    st.code("VALUE: $17.795 billion      ← correct\n"
+            "TAG:   JPM_CCBNoninterestRevenue   ← does not exist", language="text")
+    st.error(
+        "JPMorgan files **933 tags** across six namespaces. None contains \"CCB\", "
+        "and there is no `JPM` namespace. **The number was right and the citation "
+        "was fabricated** — which is worse, not better: anyone checking the figure "
+        "finds it correct and assumes the source is too. A wrong number gets "
+        "caught downstream. A wrong source gets copied into a workpaper."
+    )
+    st.caption(
+        "Measured over 25 claims, a model with no tools invented a tag once and "
+        "declined 24 times. Fabrication is rare and not the main failure — being "
+        "confidently wrong about *which* concept is."
+    )
 
 # --- filing report ----------------------------------------------------------
 
@@ -231,35 +318,6 @@ with study_tab:
     )
 
     st.divider()
-    st.markdown("### What actually makes an agent find the right concept")
-    grid = report_mod.load_json("stage4_grid.json", {})
-    if grid:
-        rs = grid.get("results", {})
-        rows = []
-        for key, label in (("no_tools", "model alone, no tools"),
-                           ("tools", "model + SEC lookup tool"),
-                           ("tools_plus_structure", "+ retrieved candidate shortlist")):
-            g = rs.get(key, [])
-            if not g:
-                continue
-            ok = sum(1 for x in g if x["correct"])
-            rows.append({"condition": label, "exact tag": f"{ok}/{len(g)}",
-                         "rate": f"{ok/len(g):.0%}",
-                         "declined": sum(1 for x in g if not x["got"] or x["got"] == "UNKNOWN")})
-        st.dataframe(rows, hide_index=True, use_container_width=True)
-    st.markdown(
-        "Same model, same tool, same budget. **Tool access is the largest single "
-        "effect measured anywhere here — 12% to 70%.** One stage of structure adds "
-        "twenty points on top of it."
-    )
-    st.warning(
-        "**The 90% is an upper bound.** That condition is handed the retrieved "
-        "candidates, and retrieval helped build the test set, so it is advantaged "
-        "by construction. The 12% and the 70% see no retrieval output and stand "
-        "on their own."
-    )
-
-    st.divider()
     st.caption(
         "**Limits.** One filer, one section, fifteen years. MD&A is not required "
         "to be tagged, so an unverifiable claim is unverifiable — not false. "
@@ -400,4 +458,41 @@ with method_tab:
 3. Looks each one up against the company's filed XBRL data at data.sec.gov
 4. Decides which verdicts are trustworthy enough to show without review
         """
+    )
+
+    st.divider()
+    st.markdown("### What the structure is worth")
+    st.caption(
+        "The same 40 claims from **Where models fail** — same model, same SEC "
+        "tool, same budget. The only thing added is step 3: the shortlist of "
+        "candidate concepts retrieved for the sentence."
+    )
+    grid = report_mod.load_json("stage4_grid.json", {})
+    rs = grid.get("results", {})
+    if rs:
+        rows = []
+        for key, label in (("no_tools", "model alone, no tools"),
+                           ("tools", "model + SEC lookup tool"),
+                           ("tools_plus_structure", "+ the retrieved shortlist")):
+            g = rs.get(key, [])
+            if not g:
+                continue
+            ok = sum(1 for x in g if x["correct"])
+            rows.append({"condition": label, "exact tag": f"{ok}/{len(g)}",
+                         "rate": f"{ok/len(g):.0%}",
+                         "declined": sum(1 for x in g
+                                         if not x["got"] or x["got"] == "UNKNOWN")})
+        st.dataframe(rows, hide_index=True, use_container_width=True)
+    st.markdown(
+        "**Tool access is the largest single effect — 12% to 70%.** A model that "
+        "can look things up beats one reasoning from memory by a mile. But one "
+        "stage of structure adds twenty points *on top of* full tool access. "
+        "Narrowing the field before asking the model to judge is doing work the "
+        "model cannot do for itself."
+    )
+    st.warning(
+        "**The 90% is an upper bound.** That condition is handed the retrieved "
+        "candidates, and retrieval helped construct the test set, so it is "
+        "advantaged by construction. The 12% and the 70% see no retrieval output "
+        "and stand on their own."
     )
