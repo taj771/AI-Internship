@@ -63,10 +63,17 @@ with filings_tab:
     st.caption(f"{len(data['rows'])} numeric claims checked against filed XBRL · "
                f"[source filing]({data['source_url']})")
 
+    # Labelled "the tool said", not "VERIFIED", because they are two different
+    # questions and the page kept being read as though they were one. A green
+    # tick beside a row that also says "needs review" looks like a contradiction
+    # until you know the tick is a claim and the review flag is about whether the
+    # claim can be trusted. Saying so in the label is cheaper than expecting the
+    # reader to hold the distinction.
+    st.caption("**What the tool said** — its verdicts, not confirmed results:")
     cols = st.columns(4)
     for col, key in zip(cols, ["SUPPORTED", "DEFINITION_MISMATCH", "CONTRADICTED", "NOT_CHECKABLE"]):
         icon, label, _ = BADGE[key]
-        col.metric(f"{icon} {label}", data["counts"].get(key, 0))
+        col.metric(f"{icon} said {label}", data["counts"].get(key, 0))
 
     alpha = data["calibration"].get("alpha", 0.03)
     needs_human = len(data["rows"]) - data["n_auto"]
@@ -86,8 +93,10 @@ with filings_tab:
     st.divider()
     for row in data["rows"]:
         icon, label, colour = BADGE.get(row["verdict"], ("•", "UNKNOWN", "#57606a"))
-        flag = "🟢 auto" if row["auto"] else "🟡 review"
-        with st.expander(f"{icon}  **{row['figure']}** — {label}  ·  {flag}  ·  {row['id']}"):
+        flag = "🟢 trusted" if row["auto"] else "🟡 unverified"
+        with st.expander(
+            f"{flag}  ·  **{row['figure']}**  ·  tool said {icon} {label}  ·  {row['id']}"
+        ):
             st.markdown("**The sentence, as filed**")
             st.info(row["sentence"].replace("$", "\\$"))
             meta = st.columns(4)
@@ -100,7 +109,11 @@ with filings_tab:
             if row["reasoning"]:
                 st.write(row["reasoning"].replace("$", "\\$"))
             if not row["auto"]:
-                st.warning(f"**Needs review** — {row['why']}")
+                st.warning(
+                    f"**The tool's verdict above is unverified.** {row['why']}. "
+                    f"It said {label} — that is its opinion, not an established "
+                    "result, so read the sentence and the filed figure yourself."
+                )
             st.caption(f"[Source filing]({row['source_url']})")
 
 
