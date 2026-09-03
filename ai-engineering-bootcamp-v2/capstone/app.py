@@ -21,6 +21,8 @@ and hiding that behind a confident layout would make it worse, not better.
 
 import asyncio
 import json
+import tempfile
+from pathlib import Path
 
 import streamlit as st
 
@@ -118,7 +120,21 @@ with live_tab:
         from memory import MemoryStore
 
         with st.spinner("Looking it up at data.sec.gov…"):
-            store = MemoryStore(dsn="", sqlite_path=report_mod.HERE / ".cache" / "app.db")
+            # The system temp directory, not a folder beside the code.
+            #
+            # This first pointed at .cache/, which exists locally and is
+            # gitignored — so on Render the directory was simply absent and
+            # sqlite3 cannot create a file inside a directory that does not
+            # exist. It failed only on this tab, only in deployment, and only
+            # when a visitor pressed the button, which is the worst of the
+            # possible times to find out.
+            #
+            # Nothing here needs to survive: memory is off, the store is handed
+            # in empty so that no learned fact can influence a live answer, and
+            # a free instance loses its filesystem on every sleep anyway.
+            store = MemoryStore(
+                dsn="", sqlite_path=Path(tempfile.gettempdir()) / "capstone-live.db"
+            )
             answer, trace, evidence = asyncio.run(
                 audit_checked(claim, store=store, learn=False)
             )
