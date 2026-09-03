@@ -179,44 +179,5 @@ with method_tab:
 4. Decides which verdicts are trustworthy enough to show without review
 
 Step 4 is the project. Anyone can build steps 1 to 3.
-
-### Why nothing is auto-accepted right now
-        """
-    )
-    st.json({k: v for k, v in calibration.items() if k != "operating_curve"})
-    curve = calibration.get("operating_curve") or []
-    if curve:
-        st.markdown("**Coverage against tolerated error, measured on held-out data**")
-        st.dataframe(
-            [
-                {
-                    "tolerated error": f"{c['alpha']:.0%}",
-                    "claims answered": f"{c['median_answered_frac']:.0%}",
-                    "actual error": (f"{c['median_error']:.0%}" if c["median_error"] is not None else "—"),
-                    "splits meeting target": f"{c['trials_meeting_target']:.0%}",
-                }
-                for c in curve
-            ],
-            hide_index=True,
-            use_container_width=True,
-        )
-    st.markdown(
-        """
-### Known limits
-
-- **Non-GAAP figures are out of reach.** Management's own measures — "managed
-  basis", "adjusted", "tangible" — are not filed as XBRL, so the tool can flag
-  that a claim is not in the filed data but cannot verify it. This is where the
-  most contestable claims live.
-- **Segment figures are the tool's worst case.** It is wrong about three times in
-  four on them, because `companyconcept` returns firmwide facts and the tool
-  compares a segment claim against a firmwide number.
-- **Labels are provisional.** 46 of the 50 were drafted by rule rather than
-  established by hand, so no accuracy figure here is reportable yet.
-- **Conformal assumes exchangeability**, which financial filings violate when
-  accounting standards change. This corpus already contains two tags abandoned
-  at exactly such a changeover.
-- **Two banks, one fiscal year, one section.** Nothing here generalises beyond
-  large-cap US bank MD&A in FY2025.
         """
     )
