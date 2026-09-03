@@ -329,3 +329,50 @@ services:
       # under known limits rather than left to be discovered during a build.
       - key: PYTHON_VERSION
         value: "3.12.3"
+
+  # ---------------------------------------------------------------------------
+  # Capstone — the Calibrated Claim Auditor.
+  #
+  # Unlike week 5, this service never writes. The filing reports it serves are
+  # precomputed into traces.jsonl and calibration.json, both committed, so a free
+  # instance waking from sleep with an empty filesystem loses nothing and no
+  # Postgres is needed. Week 5 needed DATABASE_URL because durable memory was its
+  # entire subject; here memory is deliberately switched off, so that the fifty
+  # evaluation runs stay independent of one another.
+  #
+  # The "Check a claim" tab does run the agent live and therefore needs
+  # OPENAI_API_KEY. The filing report does not — if the key were missing, the
+  # mandatory part of the demo would still work for a visitor.
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: capstone-claim-auditor
+    runtime: python
+    plan: free
+    rootDir: ai-engineering-bootcamp-v2/capstone
+    buildCommand: pip install -r requirements.txt
+    startCommand: >
+      streamlit run app.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.headless true
+
+    envVars:
+      - key: LLM_PROVIDER
+        value: openai
+
+      # Same reasoning as week 3 onwards: gpt-4o-mini answered CONTRADICTED on
+      # the JPMorgan managed-basis claim, which is the wrong verdict.
+      - key: OPENAI_MODEL
+        value: gpt-4o
+
+      - key: OPENAI_API_KEY
+        sync: false
+
+      # The SEC refuses requests that do not identify who is making them. Not a
+      # secret — closer to a return address — so it is set here rather than in
+      # the dashboard, and a deploy needs only the API key entered by hand.
+      - key: SEC_USER_AGENT
+        value: Tharaka Jayalath taj.aravinda@gmail.com
+
+      - key: PYTHON_VERSION
+        value: "3.12.3"
