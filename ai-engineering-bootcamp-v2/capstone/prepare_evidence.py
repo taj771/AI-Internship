@@ -214,7 +214,25 @@ def candidates(
         # all rewards sprawling labels for sheer surface area.
         weight = sum(max(idf.get(f, 0.0) for f in forms(w)) for w in matched)
         score = weight / max(len(label_words), 1) ** 0.5
-        if weight < 4.0:
+
+        # How much of the TAG'S OWN NAME the sentence accounts for.
+        #
+        # Weight alone rewards sprawl. "Income Tax Effects Allocated Directly To
+        # Equity" has six content words; a sentence saying "return on equity on
+        # $40.0 billion of average allocated capital" matches two of them and,
+        # with enough rarity behind those two, outscores "Noninterest Income"
+        # matched on both of its words. Measured on the 2011-2025 corpus that
+        # produced pins like "$1.8 trillion of credit provided to clients" ->
+        # AccumulatedOtherComprehensiveIncomeLossOtherThanTemporaryImpairment...,
+        # and a 5% agreement rate that was entirely the matcher's doing.
+        #
+        # Requiring the match to cover most of the label asks a different
+        # question: not "does this sentence contain some words from the tag" but
+        # "is this tag's name substantially what this sentence is talking
+        # about". It costs coverage and it is the difference between a rate that
+        # means something and one that does not.
+        coverage = len(matched) / max(len(label_words), 1)
+        if weight < 4.0 or coverage < 0.6:
             continue
 
         found = annual_value(usd, fiscal_year)

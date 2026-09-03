@@ -245,3 +245,127 @@ empty.** The trend it produces is its own blind spot with a slope on it.
   changes, a house-style shift, or content moving from prose into tables — which
   this pipeline discards. Measured that it happened, not why.
 - **One filer, one section, fifteen years.** Nothing generalises past that.
+
+---
+
+# Stage 2 results
+
+**Run 2026-09-03.** The question was: of the claims that can be checked, how many
+agree with what was filed. The answer is that the prior question — which filed
+concept does this sentence mean — is not solved, and stage 2 spent itself
+establishing that rather than measuring agreement.
+
+## Five ways of joining a sentence to a concept, and what each scored
+
+Every method pins value-blind, and is scored by whether the pinned tag's filed
+value matches the figure within tolerance.
+
+| method | rate |
+|---|---:|
+| lexical, IDF-weighted, over tag labels | 4% |
+| lexical, over labels plus official definitions | 2% |
+| dense embeddings of the sentence, nearest of ~800 | 6% |
+| dense embeddings of the phrase naming the figure | 6% |
+| value matching alone | see below |
+
+Peak cosine similarity anywhere in the corpus was **0.79**; the median 0.50. No
+sentence in fifteen years lands close to any tag definition, and the reason is
+that they are written for different readers. A standards body defines
+`CommercialPaper` as "carrying value as of the balance sheet date of short-term
+borrowings using unsecured obligations issued by banks"; management writes
+"total commercial paper liabilities were $51.6 billion". Same concept, almost no
+shared language.
+
+## Value matching looked like the answer and was mostly coincidence
+
+29.0% of claims match exactly one filed tag within 1%. That looks decisive until
+it is compared against a null: multiply every figure by a random off-one factor,
+destroying true matches while preserving magnitudes, and **25.3% still match
+exactly one tag**. The excess over chance is 3.7 points.
+
+**About 87% of unique value matches are numeric coincidence.** With roughly 800
+filed values clustered in the billions and a 1% window, one unrelated tag lands
+in the window most of the time. Sampled examples: "net income increased by $1.6
+billion" uniquely matched `IncomeTaxExaminationPenaltiesAndInterestAccrued`;
+"net interest income was $14.2 billion" uniquely matched `SecuritiesLoaned`.
+
+The perturbation null is the tool that settled this, and it needs no labels.
+
+## The metric was wrong, and that was the largest error
+
+Scoring a join by whether the values agree conflates two failures: pinning the
+wrong tag, and pinning the right tag for a figure that legitimately differs — a
+segment, a subtotal, a change. The 4-6% figures above are therefore a lower
+bound on retrieval accuracy, not a measurement of it.
+
+Tested directly: on 22 claims where the correct tag could be established
+independently, dense retrieval placed it in the **top 5 every time** and top 1
+in 64%. Retrieval was working far better than any of the numbers above could
+see. That gold set was itself selected by embedding confidence, so it is
+optimistic — but the direction of the error is established.
+
+## What the rebuilt stage 2 does
+
+`join.py`. Retrieve every tag above a null-calibrated cosine threshold — usually
+none, sometimes one or two — then compare. Retrieval never sees the figure, so
+the comparison is a test rather than a selection.
+
+The threshold, 0.55, comes from the null: at that bar a value match is about
+five times more likely to be real than coincidental. At 0.30 the null matches
+almost as often as the real data.
+
+Levels and changes are compared differently, which the first version did not do.
+"Net income was $17.4 billion" is a level and a tag holds it. "Net income
+increased by $1.6 billion" is a change and no tag holds it — it is this year
+minus last. Comparing a change against a level can never match, so every
+change-shaped claim was either a false alarm or written off as unverifiable.
+FY2011 alone has 225 of them in 896 claims.
+
+## Results, and they are not yet a product
+
+Over 900 claims:
+
+| | | |
+|---|---:|---|
+| verified | 12 (1%) | figure matches a retrieved concept |
+| review | 153 (17%) | concept found, figure differs |
+| no counterpart | 735 (82%) | nothing filed resembles it |
+
+**A 17% review queue that is almost all false alarms is worse than no tool.**
+An analyst abandons that in ten minutes.
+
+And the threshold discards correct joins: `CommercialPaper` at cosine 0.508 and
+`StockholdersEquity` at 0.527 are both right and both below the bar. The
+value-first method found them because the number narrowed the field first.
+
+So the two directions fail differently, and the finished design almost certainly
+uses both with different standards of evidence:
+
+- **value-first** — high yield, 87% coincidence, and structurally blind to
+  disagreement, since a misstated figure never enters a value shortlist
+- **text-first** — low coincidence, misses correct joins, and can detect
+  disagreement
+
+That combination is the next piece of work, not a threshold tweak at the end of
+a long night.
+
+## What stage 2 established
+
+The join is the bottleneck for automated MD&A verification. Not the comparison,
+which is arithmetic. Five retrieval methods, a perturbation null, and a direct
+recall test all point at the same place, and none of it needed a hand-labelled
+verdict.
+
+## Honest limits
+
+- **No agreement rate is reported, and none can be** from these joins. Where
+  the value selects the candidate, agreement is the selection criterion.
+- **The 82% "no counterpart" is an upper bound**, not a measurement. It mixes
+  genuinely unfiled figures with retrieval misses, and stage 1's looser matcher
+  put the same quantity at about 50%. The truth is between two measurement
+  choices, and neither pins it.
+- **Recall@5 of 100% rests on 22 claims** whose gold set was selected by
+  embedding confidence. Optimistic by construction.
+- **Nothing here detects a misstatement.** The verified bucket verifies; the
+  review bucket is a queue for a person, and it mixes real disagreements with
+  scope differences that are not errors at all.
