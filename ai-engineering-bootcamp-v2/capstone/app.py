@@ -27,7 +27,7 @@ from pathlib import Path
 import streamlit as st
 
 import report as report_mod
-from diagram import comparison_svg, pipeline_svg
+from diagram import pipeline_svg
 
 st.set_page_config(page_title="Calibrated Claim Auditor", page_icon="🔍", layout="wide")
 
@@ -341,15 +341,6 @@ with built_tab:
     )
 
     st.divider()
-    st.markdown("### Why it has to work this way")
-    st.markdown(comparison_svg(), unsafe_allow_html=True)
-    st.caption(
-        "A general model reads the filing as one text, so it can tell you what "
-        "the filing **says** — but if the written story and the filed figures "
-        "disagree, it has no way to notice, because it never held them apart. "
-        "This tool keeps them separate and reports where they diverge."
-    )
-
     # --- the live demonstration ------------------------------------------
     #
     # The left column of the diagram claims a general model answers without a

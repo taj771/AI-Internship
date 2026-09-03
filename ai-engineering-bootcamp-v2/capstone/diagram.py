@@ -1,4 +1,4 @@
-"""The comparison diagram for the How it works tab.
+"""The pipeline diagram for the What we built tab.
 
 Kept in its own file because it is a drawing, not logic, and mixing four hundred
 characters of SVG path data into app.py makes the page hard to read for no gain.
@@ -57,82 +57,6 @@ def _arrow(x1, y1, x2, y2, colour=STROKE):
     )
 
 
-def comparison_svg() -> str:
-    L, R = 30, 470          # left and right column origins
-    W = 380                 # column width
-    parts = []
-
-    # --- headings
-    parts.append(
-        f'<text x="{L + W / 2}" y="26" text-anchor="middle" font-size="15" '
-        f'font-weight="700" fill="currentColor">Asking a general model</text>'
-    )
-    parts.append(
-        f'<text x="{R + W / 2}" y="26" text-anchor="middle" font-size="15" '
-        f'font-weight="700" fill="{ACCENT}">This tool</text>'
-    )
-
-    # --- left: one path, narrowing to an answer
-    parts.append(_box(L, 50, W, 46, "A question about the filing"))
-    parts.append(_arrow(L + W / 2, 96, L + W / 2, 128))
-    parts.append(_box(L, 130, W, 62, "It reads or recalls the document",
-                      ["the written story and the audited figures",
-                       "arrive together, as one text"]))
-    parts.append(_arrow(L + W / 2, 192, L + W / 2, 224))
-    parts.append(_box(L, 226, W, 62, "One blended impression",
-                      ["nothing holds the two apart, so a",
-                       "disagreement between them is invisible"]))
-    parts.append(_arrow(L + W / 2, 288, L + W / 2, 320))
-    parts.append(_box(L, 322, W, 66, "An answer", [
-        "often the right number —",
-        "with no source, or one it composed"], colour=WARN))
-
-    # --- right: two sources, compared
-    parts.append(_box(R, 50, W, 46, "The 10-K filing"))
-    parts.append(_arrow(R + W / 2, 96, R + 100, 126))
-    parts.append(_arrow(R + W / 2, 96, R + W - 100, 126))
-    parts.append(_box(R, 128, 180, 64, "The written story",
-                      ["management explaining", "UNAUDITED"]))
-    parts.append(_box(R + 200, 128, 180, 64, "The filed figures",
-                      ["tagged XBRL data", "AUDITED"]))
-    parts.append(_arrow(R + 90, 192, R + W / 2 - 20, 222, ACCENT))
-    parts.append(_arrow(R + 290, 192, R + W / 2 + 20, 222, ACCENT))
-    parts.append(_box(R, 224, W, 46, "Compare them", colour=ACCENT))
-    parts.append(_arrow(R + W / 2, 270, R + W / 2, 300, ACCENT))
-    parts.append(_box(R, 302, W, 60, "A verdict, and where it came from",
-                      ["the exact XBRL tag, the figure, the SEC link"], colour=ACCENT))
-    parts.append(_arrow(R + W / 2, 362, R + W / 2, 392, GOOD))
-    parts.append(_box(R, 394, W, 60, "Trust layer",
-                      ["show it, or route it to a person"], colour=GOOD, dash=''))
-
-    # --- the line that makes the point
-    parts.append(
-        f'<text x="{L + W / 2}" y="418" text-anchor="middle" font-size="12.5" '
-        f'font-style="italic" fill="currentColor" opacity="0.85">'
-        f'answers “what does the filing say?”</text>'
-    )
-    parts.append(
-        f'<text x="{R + W / 2}" y="478" text-anchor="middle" font-size="12.5" '
-        f'font-style="italic" fill="{ACCENT}">'
-        f'answers “is what it says backed by what it filed?”</text>'
-    )
-
-    return (
-        '<svg viewBox="0 0 880 500" width="100%" role="img" '
-        'aria-label="A general model reads a filing as one blended text and '
-        'produces an answer without a verifiable source. This tool holds the '
-        'unaudited written story and the audited filed figures apart, compares '
-        'them, reports the exact tag it used, and decides whether the verdict '
-        'is trustworthy enough to show without human review." '
-        'xmlns="http://www.w3.org/2000/svg">'
-        f'<defs><marker id="head" viewBox="0 0 10 10" refX="9" refY="5" '
-        f'markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
-        f'<path d="M 0 0 L 10 5 L 0 10 z" fill="{STROKE}"/></marker></defs>'
-        + "".join(parts)
-        + "</svg>"
-    )
-
-
 # --- the pipeline, in detail -------------------------------------------------
 #
 # The comparison diagram above argues one point: a model has one input and this
@@ -176,90 +100,131 @@ def _stage(x, y, w, h, n, title, lines, colour=ACCENT):
     return out
 
 
+def _tool(x, y, w, h, label, lines, colour=STROKE, dim=False):
+    """What actually does the work at a stage. Drawn to the right of it."""
+    op = ".45" if dim else "1"
+    out = (f'<g opacity="{op}">'
+           f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="6" fill="none" '
+           f'stroke="{colour}" stroke-width="1.2" stroke-dasharray="4 3"/>'
+           f'<text x="{x + 12}" y="{y + 18}" font-size="10.5" font-weight="700" '
+           f'letter-spacing=".07em" fill="{colour}">{label}</text>')
+    for i, line in enumerate(lines):
+        out += (f'<text x="{x + 12}" y="{y + 35 + i * 13}" font-size="10.5" '
+                f'fill="currentColor" opacity=".78">{line}</text>')
+    return out + "</g>"
+
+
 def pipeline_svg() -> str:
-    W, H = 960, 660
+    """The pipeline, with the machinery named at every stage.
+
+    An architecture diagram that only shows boxes labelled "extract" and
+    "compare" tells a reader nothing they could not have guessed. What is worth
+    drawing is which component does the work, because that is where the design
+    decisions are: a deterministic splitter rather than a model, embeddings over
+    tag definitions rather than over the filing text, a live API call rather
+    than a cache, and a memory layer switched off on purpose.
+
+    Two things are drawn dimmed rather than omitted. Memory exists and is
+    disabled for this study, because an agent that learns from claim 3 makes
+    claim 40 non-independent and a per-claim number stops meaning anything. The
+    agent is optional — the pipeline runs without it, and what it adds is
+    measured rather than assumed. Leaving either out would make the picture
+    tidier than the system.
+    """
+    W, H = 1000, 700
+    SX, SW = 34, 430          # stage column
+    TX, TW = 512, 454         # tool column
     p = []
 
-    p.append(f'<text x="30" y="24" font-size="15" font-weight="700" '
-             f'fill="currentColor">One filing, two layers, four stages</text>')
-    p.append(f'<text x="30" y="43" font-size="11.5" fill="currentColor" opacity=".7">'
-             f'Numbers are measured on JPMorgan Chase, Item 7, fiscal years 2011–2025.</text>')
+    p.append('<text x="34" y="24" font-size="15" font-weight="700" '
+             'fill="currentColor">What runs at each stage, and what does the work</text>')
+    p.append('<text x="34" y="43" font-size="11.5" fill="currentColor" opacity=".7">'
+             'JPMorgan Chase, Item 7, FY2011&#8211;2025. Every number below is measured.</text>')
+    p.append(f'<text x="{SX}" y="66" font-size="10" font-weight="700" letter-spacing=".1em" '
+             f'fill="currentColor" opacity=".5">STAGE</text>')
+    p.append(f'<text x="{TX}" y="66" font-size="10" font-weight="700" letter-spacing=".1em" '
+             f'fill="currentColor" opacity=".5">WHAT DOES IT</text>')
 
-    # --- the two layers
-    p.append(f'<rect x="30" y="62" width="900" height="74" rx="7" fill="none" '
-             f'stroke="{STROKE}" stroke-width="1" stroke-dasharray="3 3"/>')
-    p.append(f'<text x="42" y="80" font-size="10.5" font-weight="600" '
-             f'letter-spacing=".1em" fill="currentColor" opacity=".6">THE 10-K</text>')
-    p.append(_box(52, 88, 400, 40, "Item 7 — the written story",
-                  ["management explaining the year · UNAUDITED"], WARN))
-    p.append(_box(508, 88, 400, 40, "XBRL — the filed figures",
-                  ["825 tagged concepts per year · AUDITED"], GOOD))
+    # --- the two layers of the filing. Height 52, not 38: _box puts the title
+    # at y+20 and the subtitle at y+38, so a 38-tall box lands the subtitle on
+    # its own border.
+    p.append(_box(SX, 76, SW, 52, "Item 7 &#8212; the written story",
+                  ["management explaining the year &#183; UNAUDITED"], WARN))
+    p.append(_tool(TX, 76, TW, 52, "TWO SOURCES, ONE FILING", [
+        "prose: fetch_history.py &#183; 15 filings from EDGAR archives",
+        "figures: 825 tagged concepts a year, audited &#183; used at stage 3"], WARN))
 
-    # --- stage 1
-    p.append(_flow(252, 128, 252, 168, WARN))
-    p.append(_stage(52, 170, 400, 92, "1", "Extract", [
-        "split Item 7 into sentences, keep the numeric ones",
-        "one claim per figure — a sentence with three numbers",
-        "makes three claims, because one verdict cannot cover three",
+    # 1 EXTRACT
+    p.append(_flow(SX + 60, 128, SX + 60, 140, WARN))
+    p.append(_stage(SX, 142, SW, 84, "1", "Extract", [
+        "sentences &#8594; one claim per figure &#183; 8 types &#183; tables rejected",
+        "section from the nearest preceding header",
         "6,655 claims across 15 filings"]))
+    p.append(_tool(TX, 142, TW, 84, "NO MODEL &#8212; DETERMINISTIC", [
+        "regex splitter, IDF-typed, per-filer segment names",
+        "same input, same output, every time",
+        "extract.py &#183; coverage.py"]))
 
-    # --- stage 2, the ordering that matters
-    p.append(_flow(252, 262, 252, 302, ACCENT))
-    p.append(_flow(708, 128, 708, 302, GOOD, delay=0.4))
-    p.append(_stage(52, 304, 400, 92, "2", "Retrieve — before seeing the figure", [
-        "embed the sentence · embed all 825 tag definitions",
-        "keep every concept above cosine 0.55",
-        "usually none, sometimes one or two",
-        "the threshold is set from a null, not chosen"], ACCENT))
-    p.append(f'<text x="470" y="330" font-size="10.5" font-weight="600" fill="{ACCENT}">'
-             f'the number is</text>')
-    p.append(f'<text x="470" y="344" font-size="10.5" font-weight="600" fill="{ACCENT}">'
-             f'withheld here</text>')
-    p.append(f'<text x="470" y="362" font-size="10" fill="currentColor" opacity=".65">'
-             f'so the comparison that</text>')
-    p.append(f'<text x="470" y="375" font-size="10" fill="currentColor" opacity=".65">'
-             f'follows is a test, not</text>')
-    p.append(f'<text x="470" y="388" font-size="10" fill="currentColor" opacity=".65">'
-             f'a selection effect</text>')
+    # 2 RETRIEVE
+    p.append(_flow(SX + 60, 226, SX + 60, 252, ACCENT))
+    p.append(_stage(SX, 254, SW, 92, "2", "Retrieve &#8212; before seeing the figure", [
+        "embed the sentence, compare against every tag definition",
+        "keep concepts above cosine 0.55 &#183; usually none, sometimes two",
+        "the number is withheld until stage 3"], ACCENT))
+    p.append(_tool(TX, 254, TW, 92, "EMBEDDINGS", [
+        "text-embedding-3-small &#183; 825 tag definitions, embedded once",
+        "cosine over a 1536-dim matrix &#8212; no vector DB at this size",
+        "threshold set from a perturbation null, not chosen",
+        "embed_tags.py &#183; join.py"], ACCENT))
 
-    # --- stage 3
-    p.append(_flow(252, 396, 252, 436, ACCENT))
-    p.append(_flow(708, 302, 300, 436, GOOD, delay=0.8, bend=(700, 420)))
-    p.append(_stage(52, 438, 400, 78, "3", "Compare — like with like", [
+    # 3 COMPARE
+    p.append(_flow(SX + 60, 346, SX + 60, 372, ACCENT))
+    p.append(_stage(SX, 374, SW, 84, "3", "Compare &#8212; like with like", [
         "a level against a filed total",
         "a change against the difference between two years",
-        "“increased by $1.6bn” is not a total and never matches one"]))
+        "&#8220;increased by $1.6bn&#8221; is not a total and never matches one"]))
+    p.append(_tool(TX, 374, TW, 84, "LIVE SEC LOOKUP", [
+        "data.sec.gov companyconcept &#183; fetched every run, never cached",
+        "restatement detected when filings disagree",
+        "sec_tool.py"], GOOD))
 
-    # --- stage 4 and the outcomes
-    p.append(_flow(252, 516, 252, 552, ACCENT))
-    p.append(_stage(52, 554, 400, 74, "4", "Decide", [
-        "verified 61 · review 713 · no counterpart 3,141",
-        "80% abstention, because most figures in prose are",
-        "changes, subtotals or segment-level and are not filed"], GOOD))
+    # 4 DECIDE
+    p.append(_flow(SX + 60, 458, SX + 60, 484, GOOD))
+    p.append(_stage(SX, 486, SW, 84, "4", "Decide", [
+        "verified 61 &#183; review 713 &#183; no counterpart 3,141",
+        "80% abstention &#8212; most figures in prose are changes,",
+        "subtotals or segment-level, and are not filed at all"], GOOD))
+    p.append(_tool(TX, 486, TW, 84, "THREE BUCKETS", [
+        "verified &#8212; a filed figure matches",
+        "review &#8212; concept found, figure differs &#183; a queue for a person",
+        "no counterpart &#8212; nothing filed resembles it"], GOOD))
 
-    # --- the outcomes, spelled out
-    # Drawn shapes rather than emoji: the question-mark glyph fell back to a
-    # tofu box in rendering, and a legend that depends on a font having a
-    # character is a legend that breaks silently on someone else's machine.
-    outs = [("Verified", "a filed figure matches", GOOD, 560),
-            ("Review", "concept found, figure differs", WARN, 596),
-            ("No counterpart", "nothing filed resembles it", STROKE, 632)]
-    for name, sub, colour, y in outs:
-        p.append(f'<circle cx="506" cy="{y-4}" r="5" fill="{colour}"/>')
-        p.append(f'<text x="520" y="{y}" font-size="12" font-weight="600" '
-                 f'fill="{colour}">{name}</text>')
-        p.append(f'<text x="620" y="{y}" font-size="11" fill="currentColor" '
-                 f'opacity=".7">{sub}</text>')
-    p.append(_flow(452, 590, 494, 590, GOOD, delay=1.2))
+    # --- memory, present and switched off
+    p.append(_tool(SX, 590, SW, 84, "MEMORY &#8212; BUILT, THEN SWITCHED OFF", [
+        "stores where to look (the XBRL tag), never what was found",
+        "a cached figure goes stale silently when a filing is restated",
+        "off here so runs stay independent and a per-claim number means",
+        "something &#183; memory.py, memory_gate.py"], WARN, dim=True))
+
+    # --- the agent, optional
+    p.append(_tool(TX, 590, TW, 84, "AGENT &#8212; OPTIONAL, MEASURED", [
+        "Google ADK + gpt-4o with the SEC lookup tool",
+        "alone with the tool: 28 of 40 concepts identified",
+        "handed stage 2&#8217;s shortlist: 36 of 40 &#8212; an upper bound",
+        "agent.py &#183; stage4_grid.py"], ACCENT, dim=True))
+    p.append(_flow(SX + 300, 570, SX + 300, 588, WARN, delay=1.4))
+    p.append(_flow(TX + 200, 570, TX + 200, 588, ACCENT, delay=1.6))
 
     return (
         f'<svg viewBox="0 0 {W} {H}" width="100%" role="img" '
-        'aria-label="The pipeline in four stages. A 10-K holds an unaudited written '
-        'story and audited tagged figures. Stage one extracts one claim per figure. '
-        'Stage two retrieves candidate concepts from the sentence alone, before the '
-        'figure is consulted. Stage three compares levels against totals and changes '
-        'against differences. Stage four sorts the result into verified, review, or '
-        'no counterpart, abstaining on 80 percent." '
+        'aria-label="Four pipeline stages down the left, and what performs each on the '
+        'right. Extraction is deterministic with no model. Retrieval embeds the sentence '
+        'against 825 tag definitions and keeps concepts above a null-calibrated cosine of '
+        '0.55, before the figure is consulted. Comparison fetches filed values live from '
+        'data.sec.gov and compares levels against totals and changes against differences. '
+        'The result is sorted into verified, review, or no counterpart, abstaining on 80 '
+        'percent. A memory layer and an LLM agent are shown dimmed: both exist, memory is '
+        'switched off so runs stay independent, and the agent is optional." '
         'xmlns="http://www.w3.org/2000/svg">'
         f'<defs><marker id="head" viewBox="0 0 10 10" refX="9" refY="5" '
         f'markerWidth="6" markerHeight="6" orient="auto-start-reverse">'
@@ -268,6 +233,4 @@ def pipeline_svg() -> str:
         '.flow{stroke-dashoffset:200;animation:dash 3.2s linear infinite}'
         '@keyframes dash{to{stroke-dashoffset:0}}'
         '@media (prefers-reduced-motion:reduce){.flow{animation:none;opacity:0}}'
-        '</style>'
-        + "".join(p) + '</svg>'
-    )
+        '</style>' + "".join(p) + '</svg>')
