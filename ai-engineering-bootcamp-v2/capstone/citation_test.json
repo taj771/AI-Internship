@@ -1,0 +1,240 @@
+{
+  "model": "gpt-4o",
+  "n": 25,
+  "counts": {
+    "no_escape": {
+      "declined": 24,
+      "fabricated": 1
+    }
+  },
+  "results": {
+    "no_escape": [
+      {
+        "id": "GS-0279",
+        "ticker": "GS",
+        "figure": "$997 million",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific document data such as XBRL tags from SEC filings. You can access this information directly from the SEC's EDGAR database or through financial data services that provide XBRL-tagged data."
+      },
+      {
+        "id": "GS-0055",
+        "ticker": "GS",
+        "figure": "66%",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data. You can check the SEC's EDGAR database for the exact XBRL tag and value from Goldman Sachs' fiscal year 2024 Form 10-K."
+      },
+      {
+        "id": "JPM-0028",
+        "ticker": "JPM",
+        "figure": "$2.2 billion",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or future data from SEC filings or any other proprietary databases. You can check the SEC's EDGAR database for the most recent filings from JPMorgan Chase to find the specific XBRL tag and value."
+      },
+      {
+        "id": "JPM-0114",
+        "ticker": "JPM",
+        "figure": "$17.8 billion",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data. You can check the SEC's EDGAR database or JPMorgan Chase's investor relations website for the most accurate and up-to-date information regarding their filings."
+      },
+      {
+        "id": "GS-0102",
+        "ticker": "GS",
+        "figure": "$504 million",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide the specific XBRL tag or the value for the figure from Goldman Sachs' fiscal year 2023 SEC filing. You would need to access the SEC's EDGAR database or a financial data service that provides XBRL-tagged data to find this information."
+      },
+      {
+        "id": "GS-0260",
+        "ticker": "GS",
+        "figure": "$ 27,454",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data. You can check the SEC's EDGAR database for the most accurate and up-to-date information on Goldman Sachs' filings."
+      },
+      {
+        "id": "JPM-0173",
+        "ticker": "JPM",
+        "figure": "$244 million",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific document data such as XBRL tags from SEC filings. You can check the SEC's EDGAR database for the most accurate and up-to-date information on JPMorgan Chase's filings."
+      },
+      {
+        "id": "JPM-0023",
+        "ticker": "JPM",
+        "figure": "$14.2 billion",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or future data from SEC filings or any other proprietary databases. You may want to check the SEC's EDGAR database or JPMorgan Chase's investor relations website for the most accurate and up-to-date information."
+      },
+      {
+        "id": "GS-0349",
+        "ticker": "GS",
+        "figure": "95%",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data, including XBRL tags and values, for Goldman Sachs or any other company. You can access this information directly from the SEC's EDGAR database or through financial data services that provide detailed SEC filing information."
+      },
+      {
+        "id": "GS-0240",
+        "ticker": "GS",
+        "figure": "$48 billion",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data. You can check the SEC's EDGAR database for the most accurate and up-to-date information on Goldman Sachs' filings."
+      },
+      {
+        "id": "JPM-0031",
+        "ticker": "JPM",
+        "figure": "$8.6 billion",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or future data from SEC filings or any other proprietary databases. You may want to check the SEC's EDGAR database or JPMorgan Chase's investor relations website for the most accurate and up-to-date information."
+      },
+      {
+        "id": "JPM-0093",
+        "ticker": "JPM",
+        "figure": "$1.4 billion",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or future data, including specific SEC filings or XBRL tags for fiscal year 2025. You may want to check the SEC's EDGAR database or JPMorgan Chase's investor relations website for the most current and accurate information."
+      },
+      {
+        "id": "JPM-0382",
+        "ticker": "JPM",
+        "figure": "47%",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data. You can check the SEC's EDGAR database for JPMorgan Chase's fiscal year 2024 Form 10-K to find the exact XBRL tag and value."
+      },
+      {
+        "id": "JPM-0432",
+        "ticker": "JPM",
+        "figure": "$4.4 billion",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data. You can check the SEC's EDGAR database for JPMorgan Chase's filings to find the exact XBRL tag and value."
+      },
+      {
+        "id": "GS-0410",
+        "ticker": "GS",
+        "figure": "$60.78 billion",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data. You can check the SEC's EDGAR database for the most accurate and up-to-date information on Goldman Sachs' filings."
+      },
+      {
+        "id": "JPM-0149",
+        "ticker": "JPM",
+        "figure": "6%",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific document details from SEC filings or any other proprietary databases. You may want to check the SEC's EDGAR database directly for the most accurate and up-to-date information regarding JPMorgan Chase's filings."
+      },
+      {
+        "id": "JPM-0262",
+        "ticker": "JPM",
+        "figure": "3.0%",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data. You can check the SEC's EDGAR database or JPMorgan Chase's investor relations website for the most accurate and up-to-date information."
+      },
+      {
+        "id": "JPM-0033",
+        "ticker": "JPM",
+        "figure": "$31.2 billion",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or future data from SEC filings. You can check the SEC's EDGAR database for the most recent filings from JPMorgan Chase to find the exact XBRL tag and value."
+      },
+      {
+        "id": "GS-0278",
+        "ticker": "GS",
+        "figure": "$151 million",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific document data such as XBRL tags from SEC filings. You can access this information directly from the SEC's EDGAR database or through financial data services that provide detailed company filing information."
+      },
+      {
+        "id": "GS-0013",
+        "ticker": "GS",
+        "figure": "$1.35 billion",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific document data from SEC filings or any other proprietary databases. You can check the SEC's EDGAR database for the specific filing to find the exact XBRL tag and value."
+      },
+      {
+        "id": "GS-0402",
+        "ticker": "GS",
+        "figure": "$ 284",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data, including exact XBRL tags and values, as it requires access to proprietary databases or services that provide such information. You may want to check the SEC's EDGAR database or a financial data service for the most accurate and up-to-date information."
+      },
+      {
+        "id": "GS-0003",
+        "ticker": "GS",
+        "figure": "$51.32",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data. You can verify the information by accessing the SEC's EDGAR database and reviewing Goldman Sachs' Form 10-K for the fiscal year 2025."
+      },
+      {
+        "id": "GS-0308",
+        "ticker": "GS",
+        "figure": "$ 242,634",
+        "verdict": "fabricated",
+        "tag": "us-gaap:LongTermDebtAndCapitalLeaseObligations",
+        "value": "242634000",
+        "raw": "TAG: us-gaap:LongTermDebtAndCapitalLeaseObligations\nVALUE: 242634000"
+      },
+      {
+        "id": "GS-0045",
+        "ticker": "GS",
+        "figure": "$58.28 billion",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data. You can check the SEC's EDGAR database for the most accurate and up-to-date information on Goldman Sachs' filings."
+      },
+      {
+        "id": "GS-0089",
+        "ticker": "GS",
+        "figure": "63.1%",
+        "verdict": "declined",
+        "tag": null,
+        "value": null,
+        "raw": "I'm sorry, but I can't provide real-time or specific SEC filing data. You can check the SEC's EDGAR database to find the exact XBRL tag and value for Goldman Sachs' fiscal year 2024 Form 10-K."
+      }
+    ]
+  },
+  "method": "One call per claim, no tools, temperature 0, UNKNOWN explicitly offered as a correct answer. A tag counts as real if it appears anywhere in the company's filed history, in any namespace."
+}

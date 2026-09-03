@@ -4,3 +4,4 @@ __pycache__/
 .env
 *.db
 run50.log
+app.log
