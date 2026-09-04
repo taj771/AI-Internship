@@ -72,20 +72,23 @@ st.caption(
 st.markdown(
     '<div style="font-size:13.5px;line-height:1.5;padding:9px 14px;margin:2px 0 6px;'
     'border:1px solid rgba(128,128,128,.28);border-left:3px solid #14526b;'
-    'border-radius:3px">This study produced a general tool: '
-    '<a href="https://groundgate.onrender.com" target="_blank"><b>groundgate</b></a> '
+    'border-radius:3px">This study produced a general tool: <b>groundgate</b> '
     '— block an AI answer when the source it cites does not exist. '
-    '<span style="opacity:.75">The filings work below is the evidence for it.</span>'
-    '</div>', unsafe_allow_html=True)
+    'Run it in the last tab, <b>Is the source real?</b> '
+    '<span style="opacity:.75">The written record is at '
+    '<a href="https://groundgate.onrender.com" target="_blank">groundgate.onrender.com</a>.'
+    '</span></div>', unsafe_allow_html=True)
 
 # Order is the argument: the problem, the method, the method running on one
 # filing, the same method browsable one concept at a time, then how much of any
 # filing can be confirmed at all, and finally how the confirmed figures move
 # between filings. Coverage before temporal — the scale of the gap has to land
 # before its behaviour over time means anything.
-fail_tab, built_tab, filings_tab, match_tab, study_tab, time_tab = st.tabs(
+(fail_tab, built_tab, filings_tab, match_tab, study_tab, time_tab,
+ gate_tab) = st.tabs(
     ["Where models fail", "What we built", "Filing report",
-     "Does the number match?", "How much can be checked", "How figures change"])
+     "Does the number match?", "How much can be checked", "How figures change",
+     "Is the source real?"])
 
 
 # --- where models fail ------------------------------------------------------
@@ -1167,4 +1170,120 @@ with built_tab:
         "candidates, and retrieval helped construct the test set, so it is "
         "advantaged by construction. The 12% and the 70% see no retrieval output "
         "and stand on their own."
+    )
+
+
+# --- is the source real? ----------------------------------------------------
+#
+# The one component of this project general enough to leave the subject. Every
+# other tab is about bank filings; this one is about a check that applies to any
+# assistant that cites anything — an invoice number, a ticket, a document id.
+#
+# It lives here rather than as its own service because it already has what it
+# needs: this app is deployed, has a key, and redeploys on push. A second free
+# instance would add a URL to maintain and a cold start to apologise for, in
+# exchange for nothing a tab does not give.
+#
+# It calls no model and needs no key. "Has this filer ever used this concept" is
+# a lookup in data they published, so a visitor can check any verdict here
+# against data.sec.gov themselves — which is the entire reason the check is
+# worth anything. A confidence score from a second model would not be.
+
+with gate_tab:
+    import sys as _sys
+
+    _sys.path.insert(0, str(report_mod.HERE.parent / "groundgate"))
+    try:
+        from groundgate import Gate, Run, ToolCall, default_extract_citation
+        from sources import SecTagSource
+    except ImportError as exc:                                # noqa: BLE001
+        st.error(f"groundgate is not importable here: {exc}")
+        st.stop()
+
+    BANKS = {"JPM": "JPMorgan Chase", "BAC": "Bank of America",
+             "MS": "Morgan Stanley", "WFC": "Wells Fargo", "C": "Citigroup"}
+
+    @st.cache_resource(show_spinner=False)
+    def _source(ticker: str):
+        return SecTagSource(ticker)
+
+    st.markdown("### An answer is not verified because it names a source")
+    st.markdown(
+        "An assistant tells you the company spent **&#36;1.2 million on AWS last "
+        "quarter, source: invoice INV-88421**. The figure is right. There is no "
+        "invoice INV-88421.\n\n"
+        "A wrong number is caught by the next person who looks. **A wrong source "
+        "is caught by nobody** — nobody has the reflex to check that a cited "
+        "identifier exists. So it travels into a report and acquires the "
+        "authority of something verified.\n\n"
+        "Below, the system of record is a bank's own filings: every accounting "
+        "concept it has ever filed with the SEC. **Type an answer and watch it "
+        "checked.**")
+
+    st.divider()
+    left, right = st.columns([1.1, 1])
+
+    with left:
+        bank = st.selectbox(
+            "The system the answer claims to come from", list(BANKS),
+            format_func=lambda t: f"{BANKS[t]} — everything it has filed with the SEC",
+            key="gate_bank")
+        st.caption(f"{len(_source(bank).facts):,} concepts {BANKS[bank]} has actually "
+                   "filed, 2009–2026, live from data.sec.gov.")
+
+        answer = st.text_area(
+            "An answer, as your assistant would produce it",
+            value=("The allowance for credit losses was $28.3 billion.\n"
+                   "Source: us-gaap:AllowanceForLoanAndLeaseLosses"),
+            height=120, key="gate_answer",
+            help="This is a real answer a model gave. The concept it cites is "
+                 "genuine and correctly spelled, and JPMorgan has never used it.")
+        looked = st.checkbox("the assistant consulted the system before answering",
+                             key="gate_looked")
+        run_it = st.button("Check the source", type="primary", key="gate_run")
+
+    with right:
+        if not run_it and "gate_done" not in st.session_state:
+            st.info("Press **Check the source**. No model is called — this is a "
+                    "lookup in what the company filed.")
+        else:
+            if run_it:
+                st.session_state["gate_done"] = (answer, bank, looked)
+            ans, tk, lk = st.session_state["gate_done"]
+            v = Gate(source=_source(tk)).check(Run(
+                answer=ans,
+                tool_calls=[ToolCall("lookup", result={"ok": True})] if lk else []))
+            icon = {"pass": "✅", "flag": "⚠️", "block": "⛔"}[v.outcome]
+            box = {"pass": st.success, "flag": st.warning, "block": st.error}[v.outcome]
+            box(f"### {icon} {v.outcome.upper()}\n\n" + svg("; ".join(v.reasons)))
+            m = st.columns(3)
+            m[0].metric("did it look?", "yes" if v.looked else "no")
+            m[1].metric("source exists?", "—" if v.citation_exists is None
+                        else ("yes" if v.citation_exists else "NO"))
+            m[2].metric("source agrees?", "—" if v.value_matches is None
+                        else ("yes" if v.value_matches else "no"))
+            cite = default_extract_citation(ans)
+            if cite:
+                st.caption(svg(
+                    f"Checked `{cite}` against every concept {BANKS[tk]} has filed. "
+                    + ("It is there." if v.citation_exists else
+                       "It is not there — and it is a real concept, correctly "
+                       "spelled, which is exactly why nobody catches it.")))
+
+    st.divider()
+    st.markdown(
+        "**Try to break it.** `us-gaap:Assets` and `us-gaap:NetIncomeLoss` are filed "
+        "by all five banks and pass. `us-gaap:ProvisionForCreditLosses` reads "
+        "perfectly and is filed by none of them. `us-gaap:Revenues` passes for Bank "
+        "of America and fails for Morgan Stanley, which files "
+        "`RevenuesNetOfInterestExpense` instead — for a bank the two are about "
+        "&#36;81 billion apart, and that pair is the failure this exists to catch.")
+    st.caption(
+        "**A verified source is not a verified answer.** All three checks can pass "
+        "on an answer that cites a real record, quotes it correctly, and answers a "
+        "question you did not ask. This narrows how an answer can be unfounded; it "
+        "does not establish that it is founded. Measured over 40 blinded questions: "
+        "29 declined, 11 committed, 2 cited a concept the filer had never used. "
+        "The full record, including a claim it retracted, is at "
+        "[groundgate.onrender.com](https://groundgate.onrender.com)."
     )

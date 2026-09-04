@@ -402,59 +402,17 @@ services:
         name: X-Content-Type-Options
         value: nosniff
 
-  # ---------------------------------------------------------------------------
-  # groundgate-check — the same check, as something a visitor can run.
+  # NOT a separate service: the runnable check lives in capstone-claim-auditor's
+  # last tab, "Is the source real?".
   #
-  # CREATE THIS ONE BY HAND. Dashboard -> New -> Web Service -> pick the repo,
-  # then copy rootDir, buildCommand and startCommand from below. Do NOT reach it
-  # by syncing a blueprint.
-  #
-  # Every service in this file except `groundgate` was created individually, so
-  # Render holds no link between them and this document. A blueprint sync
-  # therefore reads all of them as new, finds the names taken, and offers to
-  # create eight duplicates with a random suffix — capstone-claim-auditor-vjli
-  # and so on, each on a URL nothing points at and with no environment variables
-  # set. That offer appeared once already and was declined.
-  #
-  # Pointing a blueprint at a different file is not an escape: Render reads
+  # It was going to be groundgate-check here, and the reason it is not is worth
+  # keeping. Creating it needed a blueprint sync, and a sync on this file offers
+  # to duplicate every service in it — none of them except `groundgate` was
+  # created from this document, so Render reads them all as new, finds the names
+  # taken, and proposes capstone-claim-auditor-vjli and seven more. Pointing a
+  # blueprint at a different file is not an escape either; Render reads
   # render.yaml at the repository root and nowhere else.
   #
-  # So this file is what its own header says it is — the recoverable record of
-  # how each service is configured — and not the mechanism that creates them.
-  #
-  # Separate service from the page above rather than replacing it, because the
-  # two do different jobs. The page is read: it can be attached to a submission
-  # and gone through without pressing anything. This is operated: a sceptic who
-  # reads the page and still does not believe fabricated citations happen can
-  # type one here and watch it blocked.
-  #
-  # The first tab needs no key and calls no model — a lookup against the
-  # concepts a filer has actually filed — so it is instant and free however many
-  # people press it. Only "Watch a model try" costs anything, on a button, one
-  # call at a time. Without OPENAI_API_KEY that tab says which tab is
-  # unavailable rather than failing when a visitor tries it.
-  # ---------------------------------------------------------------------------
-  - type: web
-    name: groundgate-check
-    runtime: python
-    plan: free
-    rootDir: ai-engineering-bootcamp-v2/groundgate
-    buildCommand: pip install -r requirements.txt
-    startCommand: >
-      streamlit run app.py
-      --server.port $PORT
-      --server.address 0.0.0.0
-      --server.headless true
-
-    envVars:
-      - key: OPENAI_MODEL
-        value: gpt-4o
-
-      - key: OPENAI_API_KEY
-        sync: false
-
-      - key: SEC_USER_AGENT
-        value: Tharaka Jayalath taj.aravinda@gmail.com
-
-      - key: PYTHON_VERSION
-        value: "3.12.3"
+  # A tab in a service that already exists, already has a key and already
+  # redeploys on push costs nothing and adds no URL to maintain. The check calls
+  # no model, so it works there whether or not a key is set.
