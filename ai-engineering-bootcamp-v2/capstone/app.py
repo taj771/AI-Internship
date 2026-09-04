@@ -154,70 +154,86 @@ with fail_tab:
 # --- filing report ----------------------------------------------------------
 
 with filings_tab:
-    ticker = st.selectbox("Filing", ["GS", "JPM"], format_func=lambda t:
-                          {"GS": "Goldman Sachs — FY2025", "JPM": "JPMorgan Chase — FY2025"}[t])
-    data = report_mod.build(ticker)
+    # The output of the pipeline in tab 2, one filing at a time. This replaced a
+    # report built from the earlier agent runs over fifty hand-drawn claims —
+    # two things were on the page describing different systems, and the older
+    # one was the one a visitor saw first.
+    import json as _json
 
-    if not data["rows"]:
-        st.warning(f"No runs recorded for {ticker}. Run `python run_claims.py` first.")
-        st.stop()
+    joined = [_json.loads(l) for l in (report_mod.HERE / "join.jsonl").open(encoding="utf-8")]
+    hist = {m["fiscal_year"]: m for m in
+            _json.loads((report_mod.HERE / "data" / "history" / "manifest.json").read_text())}
+    years = sorted({r["doc_fy"] for r in joined}, reverse=True)
 
-    st.subheader(f"{data['company']} — FY{data['fiscal_year']} Form 10-K, Item 7")
-    st.caption(f"{len(data['rows'])} numeric claims checked against filed XBRL · "
-               f"[source filing]({data['source_url']})")
+    year = st.selectbox("Filing", years,
+                        format_func=lambda y: f"JPMorgan Chase — FY{y} Form 10-K")
+    rows = [r for r in joined if r["doc_fy"] == year]
+    meta = hist.get(str(year), {})
 
-    # Labelled "the tool said", not "VERIFIED", because they are two different
-    # questions and the page kept being read as though they were one. A green
-    # tick beside a row that also says "needs review" looks like a contradiction
-    # until you know the tick is a claim and the review flag is about whether the
-    # claim can be trusted. Saying so in the label is cheaper than expecting the
-    # reader to hold the distinction.
-    st.caption("**What the tool said** — its verdicts, not confirmed results:")
-    cols = st.columns(4)
-    for col, key in zip(cols, ["SUPPORTED", "DEFINITION_MISMATCH", "CONTRADICTED", "NOT_CHECKABLE"]):
-        icon, label, _ = BADGE[key]
-        col.metric(f"{icon} said {label}", data["counts"].get(key, 0))
+    buckets = {b: [r for r in rows if r["bucket"] == b]
+               for b in ("verified", "review", "no_counterpart")}
 
-    alpha = data["calibration"].get("alpha", 0.03)
-    needs_human = len(data["rows"]) - data["n_auto"]
-    if data["n_auto"]:
-        st.success(
-            f"**Auto-accepted {data['n_auto']} of {len(data['rows'])} at ≤{alpha:.0%} error. "
-            f"{needs_human} need a human.**"
-        )
-    else:
-        st.error(
-            f"**Auto-accepted 0 of {len(data['rows'])}.** No subset of these verdicts is "
-            f"trustworthy at ≤{alpha:.0%} error on the current evidence, so every row below "
-            "needs review. This is what the calibration measured, not a placeholder — see "
-            "**How it works** for why."
-        )
+    st.caption(
+        f"{len(rows)} numeric claims from Item 7 checked against filed XBRL"
+        + (f" · [source filing]({meta['source_url']})" if meta.get("source_url") else ""))
+
+    c = st.columns(3)
+    c[0].metric("Verified", len(buckets["verified"]), help="a filed figure matches")
+    c[1].metric("Needs a person", len(buckets["review"]),
+                help="a concept was identified, but the figure differs")
+    c[2].metric("Nothing to check against", len(buckets["no_counterpart"]),
+                help="no filed concept resembles the claim")
 
     st.divider()
-    for row in data["rows"]:
-        icon, label, colour = BADGE.get(row["verdict"], ("•", "UNKNOWN", "#57606a"))
-        flag = "🟢 trusted" if row["auto"] else "🟡 unverified"
-        with st.expander(
-            f"{flag}  ·  **{row['figure']}**  ·  tool said {icon} {label}  ·  {row['id']}"
-        ):
-            st.markdown("**The sentence, as filed**")
-            st.info(row["sentence"].replace("$", "\\$"))
-            meta = st.columns(4)
-            meta[0].metric("claimed", (row["claimed"] or "—").replace("$", "\\$"))
-            meta[1].metric("filed", (row["filed"] or "—").replace("$", "\\$"))
-            meta[2].metric("lookups", row["n_lookups"])
-            meta[3].metric("section", row["section"] or "firmwide")
-            if row["tag"]:
-                st.caption(f"XBRL tag: `{row['tag']}`")
-            if row["reasoning"]:
-                st.write(row["reasoning"].replace("$", "\\$"))
-            if not row["auto"]:
-                st.warning(
-                    f"**The tool's verdict above is unverified.** {row['why']}. "
-                    f"It said {label} — that is its opinion, not an established "
-                    "result, so read the sentence and the filed figure yourself."
-                )
-            st.caption(f"[Source filing]({row['source_url']})")
+
+    def money(v):
+        return f"&#36;{v/1e9:,.2f}B" if abs(v) >= 1e9 else f"&#36;{v/1e6:,.0f}M"
+
+    st.markdown("#### Verified — the claim matches what was filed")
+    if not buckets["verified"]:
+        st.caption("None this year.")
+    for r in buckets["verified"]:
+        with st.expander(f"**{r['figure']}** · {r.get('matched_tag','')}"):
+            st.info(r["raw_sentence"][:400].replace("$", "\\$"))
+            m = st.columns(3)
+            m[0].metric("claimed", r["figure"].replace("$", "\\$"))
+            m[1].metric("filed", money(r["filed"]).replace("&#36;", "$"))
+            m[2].metric("confidence", f"{r.get('matched_cos', 0):.2f}")
+            st.caption(f"Concept: `{r.get('matched_tag')}`"
+                       + ("  ·  compared as a year-over-year change" if r["is_change"]
+                          else "  ·  compared as a total"))
+
+    st.divider()
+    st.markdown("#### Needs a person — a concept was found, the figure differs")
+    st.warning(
+        "**This queue mixes two different things and the tool cannot separate "
+        "them.** Some are genuine disagreements. Most are a figure that measures "
+        "something narrower than the concept it resembles — one division rather "
+        "than the bank, or a part of a total. A person has to look."
+    )
+    for r in buckets["review"][:25]:
+        with st.expander(f"**{r['figure']}** · closest concept: {r.get('best_tag','—')}"):
+            st.info(r["raw_sentence"][:400].replace("$", "\\$"))
+            st.caption(f"Closest concept `{r.get('best_tag')}` at confidence "
+                       f"{r.get('best_cos', 0):.2f}, but its filed value does not match "
+                       f"this figure."
+                       + (f"  ·  section: {r['section']}" if r.get("section") else ""))
+    if len(buckets["review"]) > 25:
+        st.caption(f"…and {len(buckets['review']) - 25} more.")
+
+    st.divider()
+    st.markdown("#### Nothing to check against")
+    st.caption(
+        f"{len(buckets['no_counterpart'])} claims — {len(buckets['no_counterpart'])/len(rows):.0%} "
+        "of this filing. No filed concept resembles them closely enough to compare. "
+        "They are changes, part-figures, ratios, or one division rather than the "
+        "whole bank. **MD&A is not required to be tagged, so this is normal and "
+        "legal — an unverifiable claim is unverifiable, not false.**"
+    )
+    with st.expander("See a sample"):
+        for r in buckets["no_counterpart"][:12]:
+            st.markdown(f"- **{r['figure'].replace('$', chr(92)+'$')}** — "
+                        f"{r['raw_sentence'][:150].replace('$', chr(92)+'$')}…")
 
 
 # --- live check -------------------------------------------------------------
