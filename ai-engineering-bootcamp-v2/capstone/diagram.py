@@ -137,81 +137,85 @@ def pipeline_svg() -> str:
     p = []
 
     p.append('<text x="34" y="24" font-size="15" font-weight="700" '
-             'fill="currentColor">What runs at each stage, and what does the work</text>')
+             'fill="currentColor">How one number in a filing gets checked</text>')
     p.append('<text x="34" y="43" font-size="11.5" fill="currentColor" opacity=".7">'
-             'JPMorgan Chase, Item 7, FY2011&#8211;2025. Every number below is measured.</text>')
+             'Four steps, and a real claim followed through all of them. Every figure is measured, not illustrative.</text>')
     p.append(f'<text x="{SX}" y="66" font-size="10" font-weight="700" letter-spacing=".1em" '
              f'fill="currentColor" opacity=".5">STAGE</text>')
     p.append(f'<text x="{TX}" y="66" font-size="10" font-weight="700" letter-spacing=".1em" '
-             f'fill="currentColor" opacity=".5">WHAT DOES IT</text>')
+             f'fill="currentColor" opacity=".5">FOLLOW ONE REAL CLAIM</text>')
 
     # --- the two layers of the filing. Height 52, not 38: _box puts the title
     # at y+20 and the subtitle at y+38, so a 38-tall box lands the subtitle on
     # its own border.
     p.append(_box(SX, 76, SW, 52, "Item 7 &#8212; the written story",
                   ["management explaining the year &#183; UNAUDITED"], WARN))
-    p.append(_tool(TX, 76, TW, 52, "TWO SOURCES, ONE FILING", [
-        "prose: fetch_history.py &#183; 15 filings from EDGAR archives",
-        "figures: 825 tagged concepts a year, audited &#183; used at stage 3"], WARN))
+    p.append(_tool(TX, 76, TW, 52, "JPMORGAN&#8217;S 2011 ANNUAL REPORT SAYS", [
+        "&#8220;Total commercial paper liabilities were $51.6 billion",
+        "as of December 31, 2011.&#8221;"], WARN))
 
     # 1 EXTRACT
     p.append(_flow(SX + 60, 128, SX + 60, 140, WARN))
-    p.append(_stage(SX, 142, SW, 84, "1", "Extract", [
-        "sentences &#8594; one claim per figure &#183; 8 types &#183; tables rejected",
-        "section from the nearest preceding header",
-        "6,655 claims across 15 filings"]))
-    p.append(_tool(TX, 142, TW, 84, "NO MODEL &#8212; DETERMINISTIC", [
-        "regex splitter, IDF-typed, per-filer segment names",
-        "same input, same output, every time",
-        "extract.py &#183; coverage.py"]))
+    p.append(_stage(SX, 142, SW, 94, "1", "Pull out the claims", [
+        "Every sentence with a number in it becomes a claim &#8212; one per number,",
+        "because one answer cannot describe two figures. Tables are dropped:",
+        "a figure with no row or column heading is not a claim.",
+        "6,655 claims across 15 years of filings."]))
+    p.append(_tool(TX, 142, TW, 94, "WE TAKE THREE THINGS FROM IT", [
+        "the number &#8212; $51.6 billion",
+        "the words that name it &#8212; &#8220;total commercial paper liabilities&#8221;",
+        "the year &#8212; 2011",
+        "No guessing here. The same sentence always gives the same three."]))
 
     # 2 RETRIEVE
-    p.append(_flow(SX + 60, 226, SX + 60, 252, ACCENT))
-    p.append(_stage(SX, 254, SW, 92, "2", "Retrieve &#8212; before seeing the figure", [
-        "embed the sentence, compare against every tag definition",
-        "keep concepts above cosine 0.55 &#183; usually none, sometimes two",
-        "the number is withheld until stage 3"], ACCENT))
-    p.append(_tool(TX, 254, TW, 92, "EMBEDDINGS", [
-        "text-embedding-3-small &#183; 825 tag definitions, embedded once",
-        "cosine over a 1536-dim matrix &#8212; no vector DB at this size",
-        "threshold set from a perturbation null, not chosen",
-        "embed_tags.py &#183; join.py"], ACCENT))
+    p.append(_flow(SX + 60, 236, SX + 60, 252, ACCENT))
+    p.append(_stage(SX, 254, SW, 92, "2", "Work out what it is about", [
+        "Match the meaning of the sentence against the official definition of",
+        "every concept the company files. Keep only the close ones.",
+        "Usually nothing is close enough. Sometimes one or two are.",
+        "The number itself is deliberately not used yet."], ACCENT))
+    p.append(_tool(TX, 254, TW, 92, "WHICH OF 825 OFFICIAL CONCEPTS IS THIS?", [
+        "Every concept the company files has a formal definition. We compare",
+        "the meaning of the sentence to all 825 of them &#8212; using the words",
+        "only. Two come close. &#8220;Commercial Paper&#8221; is much the strongest.",
+        "We have not looked at $51.6 billion yet. That is the whole trick."], ACCENT))
 
     # 3 COMPARE
     p.append(_flow(SX + 60, 346, SX + 60, 372, ACCENT))
-    p.append(_stage(SX, 374, SW, 84, "3", "Compare &#8212; like with like", [
-        "a level against a filed total",
-        "a change against the difference between two years",
-        "&#8220;increased by $1.6bn&#8221; is not a total and never matches one"]))
-    p.append(_tool(TX, 374, TW, 84, "LIVE SEC LOOKUP", [
-        "data.sec.gov companyconcept &#183; fetched every run, never cached",
-        "restatement detected when filings disagree",
-        "sec_tool.py"], GOOD))
+    p.append(_stage(SX, 374, SW, 84, "3", "Compare like with like", [
+        "A total is checked against the filed total.",
+        "A change is checked against the difference between two years &#8212;",
+        "&#8220;up $1.6 billion&#8221; is not a total, and could never match one."]))
+    p.append(_tool(TX, 374, TW, 84, "NOW WE LOOK AT THE NUMBER", [
+        "What did the company actually file under Commercial Paper for 2011?",
+        "$51.6 billion. Fetched fresh from the regulator, never remembered,",
+        "because published figures get revised later."], GOOD))
 
     # 4 DECIDE
     p.append(_flow(SX + 60, 458, SX + 60, 484, GOOD))
-    p.append(_stage(SX, 486, SW, 84, "4", "Decide", [
-        "verified 61 &#183; review 713 &#183; no counterpart 3,141",
-        "80% abstention &#8212; most figures in prose are changes,",
-        "subtotals or segment-level, and are not filed at all"], GOOD))
-    p.append(_tool(TX, 486, TW, 84, "THREE BUCKETS", [
-        "verified &#8212; a filed figure matches",
-        "review &#8212; concept found, figure differs &#183; a queue for a person",
-        "no counterpart &#8212; nothing filed resembles it"], GOOD))
+    p.append(_stage(SX, 486, SW, 84, "4", "Say what was found &#8212; or admit it cannot", [
+        "Verified 61 &#183; needs a person 713 &#183; nothing to check against 3,141.",
+        "Four claims in five have no filed counterpart at all: they are",
+        "changes, part-figures, or one division rather than the whole bank."], GOOD))
+    p.append(_tool(TX, 486, TW, 84, "THEY MATCH &#8212; SO: VERIFIED", [
+        "The claim checks out, and we can show why: the concept, the filed",
+        "figure, and a link to the filing itself.",
+        "When they differ, a person is asked to look. When nothing resembles",
+        "the sentence, we say so instead of guessing &#8212; four times in five."], GOOD))
 
     # --- memory, present and switched off
-    p.append(_tool(SX, 590, SW, 84, "MEMORY &#8212; BUILT, THEN SWITCHED OFF", [
-        "stores where to look (the XBRL tag), never what was found",
-        "a cached figure goes stale silently when a filing is restated",
-        "off here so runs stay independent and a per-claim number means",
-        "something &#183; memory.py, memory_gate.py"], WARN, dim=True))
+    p.append(_tool(SX, 590, SW, 84, "IT CAN REMEMBER &#8212; TURNED OFF HERE", [
+        "It can learn where a company files something, so it need not hunt",
+        "twice. It never remembers the number: figures get revised, and a",
+        "remembered one is right today and quietly wrong next year.",
+        "Off for this study, so every check stands on its own."], WARN, dim=True))
 
     # --- the agent, optional
-    p.append(_tool(TX, 590, TW, 84, "AGENT &#8212; OPTIONAL, MEASURED", [
-        "Google ADK + gpt-4o with the SEC lookup tool",
-        "alone with the tool: 28 of 40 concepts identified",
-        "handed stage 2&#8217;s shortlist: 36 of 40 &#8212; an upper bound",
-        "agent.py &#183; stage4_grid.py"], ACCENT, dim=True))
+    p.append(_tool(TX, 590, TW, 84, "AN AI CAN DO THIS JOB TOO &#8212; PARTLY", [
+        "Given the same lookup, a model picks the right concept 28 times in",
+        "40. Handed the two candidates from step 2, 36 times in 40.",
+        "Narrowing the field first is doing work the model cannot do alone."],
+        ACCENT, dim=True))
     p.append(_flow(SX + 300, 570, SX + 300, 588, WARN, delay=1.4))
     p.append(_flow(TX + 200, 570, TX + 200, 588, ACCENT, delay=1.6))
 
