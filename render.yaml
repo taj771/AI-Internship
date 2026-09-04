@@ -345,7 +345,7 @@ services:
   # mandatory part of the demo would still work for a visitor.
   # ---------------------------------------------------------------------------
   - type: web
-    name: capstone-claim-auditor
+    name: groundgate
     runtime: python
     plan: free
     rootDir: ai-engineering-bootcamp-v2/capstone
@@ -378,7 +378,7 @@ services:
         value: "3.12.3"
 
   # ---------------------------------------------------------------------------
-  # groundgate — the verification record, as a page to send with the capstone.
+  # groundgate-record — the verification record, as a page to send with a submission.
   #
   # A static site: the measurement it reports was taken offline by
   # blind_probe.py and every verdict computed against JPMorgan's filed facts
@@ -388,7 +388,7 @@ services:
   # the right thing to attach to a submission.
   # ---------------------------------------------------------------------------
   - type: web
-    name: groundgate
+    name: groundgate-record
     runtime: static
     rootDir: ai-engineering-bootcamp-v2/groundgate
     # Nothing to build — site/ is committed HTML. An explicit no-op rather than
