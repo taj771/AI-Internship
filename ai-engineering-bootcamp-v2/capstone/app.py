@@ -1190,12 +1190,13 @@ with built_tab:
 # worth anything. A confidence score from a second model would not be.
 
 with gate_tab:
+    import re as _re
     import sys as _sys
 
     _sys.path.insert(0, str(report_mod.HERE.parent / "groundgate"))
     try:
         from groundgate import Gate, Run, ToolCall, default_extract_citation
-        from sources import SecTagSource
+        from sources import DictSource, SecTagSource
     except ImportError as exc:                                # noqa: BLE001
         st.error(f"groundgate is not importable here: {exc}")
         st.stop()
@@ -1203,9 +1204,25 @@ with gate_tab:
     BANKS = {"JPM": "JPMorgan Chase", "BAC": "Bank of America",
              "MS": "Morgan Stanley", "WFC": "Wells Fargo", "C": "Citigroup"}
 
-    @st.cache_resource(show_spinner=False)
-    def _source(ticker: str):
-        return SecTagSource(ticker)
+    # A system of record small enough to print.
+    #
+    # The SEC version checks against 918 concepts a bank really filed, which is
+    # the honest demonstration and completely opaque: a visitor types an
+    # identifier into a box and something invisible says yes or no. Nothing is
+    # learned unless they already know what an XBRL concept is.
+    #
+    # Six invoices fit on screen. The reader sees both sides of the check at
+    # once — the claim, and the table it is checked against — and needs no
+    # domain knowledge at all. It also makes the third check demonstrable, which
+    # the SEC source cannot do: a tag's value depends on which fiscal year and
+    # period type is meant, so sources.py deliberately declines to guess.
+    INVOICES = {
+        "INV-88421": 1_200_000, "INV-88422": 84_000, "INV-88510": 15_400,
+        "INV-90001": 840_000, "INV-90114": 226_000, "INV-91002": 47_500,
+    }
+    VENDORS = {"INV-88421": "Amazon Web Services", "INV-88422": "Datadog",
+               "INV-88510": "Figma", "INV-90001": "Snowflake",
+               "INV-90114": "Databricks", "INV-91002": "PagerDuty"}
 
     st.markdown("### An answer is not verified because it names a source")
     st.markdown(
@@ -1215,44 +1232,98 @@ with gate_tab:
         "A wrong number is caught by the next person who looks. **A wrong source "
         "is caught by nobody** — nobody has the reflex to check that a cited "
         "identifier exists. So it travels into a report and acquires the "
-        "authority of something verified.\n\n"
-        "Below, the system of record is a bank's own filings: every accounting "
-        "concept it has ever filed with the SEC. **Type an answer and watch it "
-        "checked.**")
+        "authority of something verified.")
 
     st.divider()
-    left, right = st.columns([1.1, 1])
+    mode = st.radio(
+        "Check an answer against:",
+        ["An invoice system — six rows, printed below",
+         "A bank's SEC filings — every concept it has ever filed"],
+        key="gate_mode", horizontal=False)
+    invoices = mode.startswith("An invoice")
 
-    with left:
+    if invoices:
+        st.caption("**This is the entire system of record.** Anything an answer "
+                   "cites is either in this table or invented.")
+        st.dataframe(
+            [{"invoice": k, "vendor": VENDORS[k], "amount": f"${v:,}"}
+             for k, v in INVOICES.items()],
+            hide_index=True, use_container_width=True)
+        source = DictSource(INVOICES)
+        system = "the invoice system"
+        samples = {
+            "a real source, checked": "We spent $840,000 with Snowflake.\nSource: INV-90001",
+            "a real source, wrong amount": "We spent $1.2 million with Snowflake.\nSource: INV-90001",
+            "an invented source": "We spent $1.2 million on AWS.\nSource: INV-00042",
+            "no source at all": "We spent about $1.2 million on AWS last quarter.",
+        }
+    else:
         bank = st.selectbox(
-            "The system the answer claims to come from", list(BANKS),
+            "Which filer", list(BANKS),
             format_func=lambda t: f"{BANKS[t]} — everything it has filed with the SEC",
             key="gate_bank")
-        st.caption(f"{len(_source(bank).facts):,} concepts {BANKS[bank]} has actually "
-                   "filed, 2009–2026, live from data.sec.gov.")
+        source = SecTagSource(bank)
+        st.caption(f"{len(source.facts):,} concepts {BANKS[bank]} has actually filed, "
+                   "2009–2026, live from data.sec.gov. You cannot see them all, which "
+                   "is exactly why a person cannot do this check by eye.")
+        system = BANKS[bank] + "'s filings"
+        samples = {
+            "a real source": "Total assets were $4.4 trillion.\nSource: us-gaap:Assets",
+            "an invented source":
+                "The allowance for credit losses was $28.3 billion.\n"
+                "Source: us-gaap:AllowanceForLoanAndLeaseLosses",
+            "one that splits the banks":
+                "Net revenue was $46.5 billion.\nSource: us-gaap:RevenuesNetOfInterestExpense",
+            "no source at all": "Total assets were $4.4 trillion.",
+        }
 
+    st.markdown("#### Try to fool it")
+    st.caption(
+        f"Edit the answer below — **invent a source that sounds real** and see what "
+        f"happens. You will know you made it up, which is the point: nobody has to "
+        f"take my word for a rigged example. Or load one of these:")
+    # Seed the box through session_state and never pass value= alongside a key.
+    # Streamlit ignores value when the key already exists and logs a warning for
+    # it, so the two together are a widget that silently stops honouring its own
+    # default. Switching the system of record reseeds, because an invoice number
+    # in the SEC box would check a question nobody asked.
+    if st.session_state.get("gate_seeded") != mode:
+        st.session_state["gate_answer"] = list(samples.values())[1]
+        st.session_state["gate_seeded"] = mode
+        st.session_state.pop("gate_done", None)
+
+    cols = st.columns(len(samples))
+    for col, (label, text) in zip(cols, samples.items()):
+        if col.button(label, key=f"gs_{label}", use_container_width=True):
+            st.session_state["gate_answer"] = text
+            st.session_state.pop("gate_done", None)
+            st.rerun()
+
+    left, right = st.columns([1.05, 1])
+    with left:
         answer = st.text_area(
             "An answer, as your assistant would produce it",
-            value=("The allowance for credit losses was $28.3 billion.\n"
-                   "Source: us-gaap:AllowanceForLoanAndLeaseLosses"),
-            height=120, key="gate_answer",
-            help="This is a real answer a model gave. The concept it cites is "
-                 "genuine and correctly spelled, and JPMorgan has never used it.")
+            height=118, key="gate_answer")
         looked = st.checkbox("the assistant consulted the system before answering",
-                             key="gate_looked")
-        run_it = st.button("Check the source", type="primary", key="gate_run")
+                             value=True, key="gate_looked")
+        if st.button("Check the source", type="primary", key="gate_run"):
+            st.session_state["gate_done"] = True
 
     with right:
-        if not run_it and "gate_done" not in st.session_state:
-            st.info("Press **Check the source**. No model is called — this is a "
-                    "lookup in what the company filed.")
+        if "gate_done" not in st.session_state:
+            st.info(f"Press **Check the source**. No model is called — this is a "
+                    f"lookup in {system}.")
         else:
-            if run_it:
-                st.session_state["gate_done"] = (answer, bank, looked)
-            ans, tk, lk = st.session_state["gate_done"]
-            v = Gate(source=_source(tk)).check(Run(
-                answer=ans,
-                tool_calls=[ToolCall("lookup", result={"ok": True})] if lk else []))
+            money = _re.search(r"\$\s?([\d,]+(?:\.\d+)?)\s*(million|billion|trillion)?",
+                               answer, _re.I)
+            claimed = None
+            if money and invoices:
+                claimed = float(money.group(1).replace(",", ""))
+                claimed *= {"million": 1e6, "billion": 1e9, "trillion": 1e12}.get(
+                    (money.group(2) or "").lower(), 1)
+            v = Gate(source=source).check(Run(
+                answer=answer, claimed_value=claimed,
+                tool_calls=[ToolCall("lookup", result={"ok": True})] if looked else []))
             icon = {"pass": "✅", "flag": "⚠️", "block": "⛔"}[v.outcome]
             box = {"pass": st.success, "flag": st.warning, "block": st.error}[v.outcome]
             box(f"### {icon} {v.outcome.upper()}\n\n" + svg("; ".join(v.reasons)))
@@ -1261,28 +1332,29 @@ with gate_tab:
             m[1].metric("source exists?", "—" if v.citation_exists is None
                         else ("yes" if v.citation_exists else "NO"))
             m[2].metric("source agrees?", "—" if v.value_matches is None
-                        else ("yes" if v.value_matches else "no"))
-            cite = default_extract_citation(ans)
-            if cite:
-                st.caption(svg(
-                    f"Checked `{cite}` against every concept {BANKS[tk]} has filed. "
-                    + ("It is there." if v.citation_exists else
-                       "It is not there — and it is a real concept, correctly "
-                       "spelled, which is exactly why nobody catches it.")))
+                        else ("yes" if v.value_matches else "NO"))
+            cite = default_extract_citation(answer)
+            st.caption(svg(
+                f"Looked `{cite}` up in {system}. "
+                + ("It is there." if v.citation_exists else
+                   "It is not there — and it reads perfectly, which is exactly "
+                   "why nobody catches it.")) if cite else
+                "No `Source:` line found. The parser is strict on purpose: guessing "
+                "which noun was meant as the source would make this component's own "
+                "output unverifiable.")
 
     st.divider()
-    st.markdown(
-        "**Try to break it.** `us-gaap:Assets`, `us-gaap:NetIncomeLoss` and "
-        "`us-gaap:Deposits` are filed by all five banks and pass. "
-        "`us-gaap:ProvisionForCreditLosses` and "
-        "`us-gaap:AllowanceForLoanAndLeaseLosses` read perfectly, are real "
-        "concepts in the taxonomy, and **not one of the five has ever filed "
-        "either** — both are blocked.\n\n"
-        "The sharp one is `us-gaap:RevenuesNetOfInterestExpense`. It **passes** "
-        "for JPMorgan, Morgan Stanley and Wells Fargo, and is **blocked** for "
-        "Bank of America and Citigroup, which file `us-gaap:Revenues` instead. "
-        "Same plausible label, and for a bank the two concepts are tens of "
-        "billions apart. Switch the bank above and watch the verdict flip.")
+    if not invoices:
+        st.markdown(
+            "**The pair worth trying.** `us-gaap:RevenuesNetOfInterestExpense` "
+            "**passes** for JPMorgan, Morgan Stanley and Wells Fargo and is "
+            "**blocked** for Bank of America and Citigroup, which file "
+            "`us-gaap:Revenues` instead. Same plausible label, and for a bank the "
+            "two concepts are tens of billions apart. Switch the filer and watch "
+            "the verdict flip.\n\n"
+            "`us-gaap:ProvisionForCreditLosses` and "
+            "`us-gaap:AllowanceForLoanAndLeaseLosses` are real concepts in the "
+            "taxonomy that **not one of the five has ever filed**.")
     st.caption(
         "**A verified source is not a verified answer.** All three checks can pass "
         "on an answer that cites a real record, quotes it correctly, and answers a "
