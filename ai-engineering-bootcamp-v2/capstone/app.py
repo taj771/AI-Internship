@@ -21,8 +21,12 @@ and hiding that behind a confident layout would make it worse, not better.
 
 import asyncio
 import json
+import os
+import random
 import re
 import tempfile
+from collections import defaultdict
+from datetime import date
 from pathlib import Path
 
 import streamlit as st
@@ -110,48 +114,196 @@ with fail_tab:
     # --- 1 ---------------------------------------------------------------
     st.divider()
     st.markdown("#### 1 · The number is wrong")
-    a, b = st.columns([1, 1])
-    with a:
-        st.markdown("**What Item 7 said** — JPMorgan, FY2011")
-        st.info("Noninterest expense was &#36;10.4 billion, an increase of 1%, "
-                "driven by investments in advisors and technology…")
-        st.caption("This sentence sits under a segment heading. &#36;10.4 billion "
-                   "is one division.")
-    with b:
-        st.markdown("**What a general model answered**")
-        st.code("TAG:   us-gaap:NoninterestExpense\nVALUE: 59,515,000,000", language="text")
-        st.error("The concept is real and JPMorgan does file it. The figure is "
-                 "the **firmwide** total — &#36;59.5 billion against a division's "
-                 "&#36;10.4 billion. Right concept, wrong scope, wrong number.")
-    st.markdown(
-        "**Why it is hard to catch.** Nothing in the sentence names a division; "
-        "the scope is carried by a heading several paragraphs above it. Catching "
-        "this needs the true value, which needs the right concept *and* the right "
-        "scope — and the SEC's public API will not return segment figures at all.")
+    st.caption(
+        "Run it. A real sentence from a real 10-K with **every figure stripped "
+        "out**, so the model has to supply the number rather than read it back — "
+        "then compare what it says against what the sentence said.")
 
-    # --- 2 ---------------------------------------------------------------
+    _cov = [json.loads(l) for l in (report_mod.HERE / "coverage.jsonl").open(encoding="utf-8")]
+    _pool = [r for r in _cov if r["ticker"] == "JPM" and r["structural"] == "reachable"
+             and r["has_tag"] and 60 < len(r["raw_sentence"]) < 240]
+
+    def _blind(sentence, figure):
+        import extract as _ex
+        spans = sorted({(m.start(), m.end()) for m in _ex.MONEY.finditer(sentence)}
+                       | {(m.start(), m.end()) for m in _ex.PCT.finditer(sentence)})
+        spans = [(a, b) for a, b in spans
+                 if not any(c <= a and b <= d and (c, d) != (a, b) for c, d in spans)]
+        if not spans:
+            return sentence
+        target = sentence.find(figure)
+        if target < 0:
+            target = spans[0][0]
+        out, last = [], 0
+        for a, b in spans:
+            out.append(sentence[last:a])
+            out.append("[[ ? ]]" if a == target else "[...]")
+            last = b
+        out.append(sentence[last:])
+        return "".join(out)
+
+    if "f1_claim" not in st.session_state and _pool:
+        st.session_state["f1_claim"] = random.Random(3).choice(_pool)
+    claim1 = st.session_state.get("f1_claim")
+
+    if claim1:
+        masked = _blind(claim1["raw_sentence"], claim1["figure"])
+        st.markdown("**The question, with the answer taken out of it**")
+        st.code(f"JPMorgan Chase, Item 7, fiscal year {claim1['fiscal_year']}:\n\n"
+                f"  {masked}\n\n"
+                f"What figure belongs at [[ ? ]], and under which us-gaap concept "
+                f"did they file it?", language="text")
+
+        r1, r2 = st.columns([1, 3])
+        go1 = r1.button("Ask the model", type="primary", key="f1_go")
+        if r2.button("Another sentence", key="f1_next"):
+            st.session_state["f1_claim"] = random.choice(_pool)
+            st.session_state.pop("f1_answer", None)
+            st.rerun()
+
+        if go1:
+            _key = os.getenv("OPENAI_API_KEY")
+            if not _key:
+                st.warning(
+                    "No model key on this instance, so this cannot call one. The "
+                    "recorded run of exactly this experiment is at "
+                    "[groundgate.onrender.com](https://groundgate.onrender.com) — "
+                    "40 questions, the figure right once in eleven.")
+            else:
+                from openai import OpenAI
+                with st.spinner("One call, no tools..."):
+                    try:
+                        resp = OpenAI(api_key=_key).chat.completions.create(
+                            model=os.getenv("OPENAI_MODEL", "gpt-4o"), temperature=0,
+                            messages=[{"role": "user", "content":
+                                f"Below is one sentence from JPMorgan Chase's 10-K, "
+                                f"Item 7, for fiscal year {claim1['fiscal_year']}. "
+                                f"Every figure has been removed.\n\n  {masked}\n\n"
+                                f"The removed figure marked [[ ? ]] is the one to "
+                                f"identify. Which exact XBRL tag did JPMorgan Chase "
+                                f"file it under, and what value did they file?\n\n"
+                                f"Answer in exactly this shape and nothing else:\n"
+                                f"TAG: <the exact us-gaap tag, or UNKNOWN>\n"
+                                f"VALUE: <the figure in dollars, or UNKNOWN>"}])
+                        st.session_state["f1_answer"] = resp.choices[0].message.content or ""
+                    except Exception as exc:                      # noqa: BLE001
+                        st.error(f"The call failed: `{type(exc).__name__}: {exc}`.")
+
+        if "f1_answer" in st.session_state:
+            raw = st.session_state["f1_answer"]
+            g1, g2 = st.columns(2)
+            with g1:
+                st.markdown("**What it answered**")
+                st.code(raw[:240], language="text")
+            with g2:
+                st.markdown("**What the sentence actually said**")
+                st.code(f"the figure at [[ ? ]] is  {claim1['figure']}", language="text")
+                import prepare_evidence as _pe
+                truth = _pe.parse_claimed(claim1["figure"])
+                m = re.search(r"VALUE:\s*([^\n]+)", raw)
+                got = None
+                if m:
+                    t = m.group(1).replace(",", "").strip().lstrip("$")
+                    t = t.replace("(", "-").replace(")", "")
+                    try:
+                        got = float(t)
+                    except ValueError:
+                        got = _pe.parse_claimed(m.group(1))
+                if got is None or truth is None:
+                    st.info("It gave no figure — the correct answer, and still "
+                            "useless: you have to go and look.")
+                elif abs(got - truth) / abs(truth) <= 0.015:
+                    st.success("Right this time. It does happen — once in eleven "
+                               "across the recorded run.")
+                else:
+                    st.error(svg(
+                        f"Off by **{abs(got - truth) / abs(truth):,.0%}**. It "
+                        f"answered ${got/1e9:,.2f}B against the {claim1['figure']} "
+                        f"the sentence states."))
+
+    st.markdown(
+        "**Why this one is hard to catch.** A model that answers the *firmwide* "
+        "figure for a *division's* sentence has named a real concept and returned "
+        "a real number — nothing about the answer looks wrong. Catching it needs "
+        "the true value, which needs the right concept **and** the right scope, "
+        "and the SEC's public API will not return segment figures at all.")
+
     st.divider()
     st.markdown("#### 2 · Two sources, two numbers, both filed")
-    c, d = st.columns([1, 1])
-    with c:
-        st.markdown("**JPMorgan's cash from operating activities, FY2017**")
-        st.code("as filed in the FY2017 report   -$10.83B\n"
-                "as filed in a later report       -$2.50B", language="text")
-        st.caption("FY2019 moved too: &#36;4.09B, then &#36;6.05B. Four consecutive "
-                   "years were restated — 2016 through 2019.")
-    with d:
-        st.markdown("**Which one is correct**")
-        st.warning("**Both.** Every annual report republishes prior years, and a "
-                   "reclassification moves them. A figure copied down in 2017 was "
-                   "right that day and wrong within a year, with nothing announcing "
-                   "it.")
-    st.markdown(
-        "**This is not a model failure at all.** No amount of prompting fixes it. "
-        "It is why this project never stores a figure — only where to look, "
-        "fetched live on every check. A cached number is a stale-answer generator, "
-        "which is precisely the failure a claim auditor exists to catch.")
+    st.caption(
+        "Fetched from data.sec.gov when you press the button — one request for "
+        "one concept, and every annual value the filer has ever published for it.")
 
-    # --- 3 ---------------------------------------------------------------
+    CIKS = {"JPM": "0000019617", "BAC": "0000070858", "MS": "0000895421",
+            "WFC": "0000072971", "C": "0000831001"}
+    WATCHABLE = ["NetCashProvidedByUsedInOperatingActivities",
+                 "NetCashProvidedByUsedInFinancingActivities",
+                 "InvestmentBankingRevenue", "NoninterestExpense",
+                 "InterestIncomeExpenseNet", "Assets", "Deposits"]
+
+    q1, q2, q3 = st.columns([1, 2.2, 1])
+    f2_bank = q1.selectbox("Filer", list(CIKS), key="f2_bank")
+    f2_tag = q2.selectbox("Concept", WATCHABLE, key="f2_tag")
+    q3.markdown("&nbsp;")
+    if q3.button("Look it up", type="primary", key="f2_go"):
+        import requests as _rq
+        url = (f"https://data.sec.gov/api/xbrl/companyconcept/"
+               f"CIK{CIKS[f2_bank]}/us-gaap/{f2_tag}.json")
+        with st.spinner("data.sec.gov..."):
+            try:
+                resp = _rq.get(url, timeout=45, headers={
+                    "User-Agent": os.getenv("SEC_USER_AGENT", "capstone reader"),
+                    "Accept-Encoding": "gzip, deflate"})
+                st.session_state["f2_data"] = (
+                    resp.json() if resp.status_code == 200 else None,
+                    resp.status_code, url, f2_bank, f2_tag)
+            except Exception as exc:                              # noqa: BLE001
+                st.session_state["f2_data"] = (None, type(exc).__name__, url,
+                                               f2_bank, f2_tag)
+
+    if "f2_data" in st.session_state:
+        data, status, url, bank_used, tag_used = st.session_state["f2_data"]
+        st.caption(f"`GET .../CIK{CIKS[bank_used]}/us-gaap/{tag_used}.json` -> {status}")
+        if not data:
+            st.info(f"{bank_used} does not file `{tag_used}`, so the SEC has nothing "
+                    "to return. Which is failure 3 in miniature: a perfectly "
+                    "plausible concept that this filer has never used.")
+        else:
+            years = defaultdict(set)
+            for e in data.get("units", {}).get("USD", []):
+                start, end = e.get("start"), e.get("end")
+                if not end:
+                    continue
+                if start:
+                    days = (date.fromisoformat(end) - date.fromisoformat(start)).days
+                    if not 350 <= days <= 380:
+                        continue
+                elif e.get("fp") != "FY":
+                    continue
+                years[int(end[:4])].add(e["val"])
+            moved = {y: sorted(v) for y, v in years.items() if len(v) > 1}
+            if not moved:
+                st.success(svg(
+                    f"**{bank_used} · {tag_used}** — one filed value in every year "
+                    "the SEC returned. Nothing restated. Not every concept moves, "
+                    "which is why this is worth checking rather than assuming."))
+            else:
+                st.warning(svg(
+                    f"**{len(moved)} fiscal year(s) carry more than one filed "
+                    "value.** Every annual report republishes prior years, and a "
+                    "reclassification moves them."))
+                st.dataframe(
+                    [{"fiscal year": y,
+                      "values the SEC returns": "   and   ".join(
+                          f"${v/1e9:,.2f}B" for v in vals),
+                      "apart by": f"{abs(vals[-1]-vals[0])/max(abs(vals[0]), 1):,.0%}"}
+                     for y, vals in sorted(moved.items())],
+                    hide_index=True, use_container_width=True)
+                st.caption(
+                    "Both values are correct — each was the filed figure on the day "
+                    "it was filed. A number copied down on the first of those days "
+                    "was right, and wrong within a year, with nothing announcing it.")
+
     st.divider()
     st.markdown("#### 3 · The source does not exist")
     e, f = st.columns([1, 1])
