@@ -61,6 +61,23 @@ st.caption(
     "**Research tooling, not investment advice.** It says *look at this*, never *do this*."
 )
 
+# Where this work went.
+#
+# The measurement here — 34,870 claims, five banks, and a pipeline that yields a
+# usable comparison on 0.6% of them — produced one component general enough to
+# leave the subject: the check that a cited source exists in the system it claims
+# to come from. That is groundgate, and it is the link to give someone who does
+# not care about bank filings. This page is what backs it up when they ask how
+# anyone knows.
+st.markdown(
+    '<div style="font-size:13.5px;line-height:1.5;padding:9px 14px;margin:2px 0 6px;'
+    'border:1px solid rgba(128,128,128,.28);border-left:3px solid #14526b;'
+    'border-radius:3px">This study produced a general tool: '
+    '<a href="https://groundgate.onrender.com" target="_blank"><b>groundgate</b></a> '
+    '— block an AI answer when the source it cites does not exist. '
+    '<span style="opacity:.75">The filings work below is the evidence for it.</span>'
+    '</div>', unsafe_allow_html=True)
+
 # Order is the argument: the problem, the method, the method running on one
 # filing, the same method browsable one concept at a time, then how much of any
 # filing can be confirmed at all, and finally how the confirmed figures move
