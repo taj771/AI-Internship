@@ -74,6 +74,7 @@ slow one — it is a hole, and the claims that failed were the hard ones.
 | `run_claims.py` | agent over the claims, traces to `traces.jsonl` |
 | `score.py` | agreement by type and provenance, against a trivial baseline |
 | `calibrate.py` | which features predict failure; conformal threshold |
+| `browse.py` | regroups `consistency.jsonl` by concept for the *Does the number match?* tab. **Reads stage 2, never stage 3's `join.jsonl`** — see its header for why |
 | `report.py` / `app.py` | per-filing report and the web app |
 | `sec_tool.py` | XBRL lookup. **Modified** from week-5 — see below |
 

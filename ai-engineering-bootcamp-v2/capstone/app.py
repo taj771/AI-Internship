@@ -61,12 +61,13 @@ st.caption(
 )
 
 # Order is the argument: the problem, the method, the method running on one
-# filing, then how much of any filing can be confirmed at all, and finally how
-# the confirmed figures move between filings. Coverage before temporal — the
-# scale of the gap has to land before its behaviour over time means anything.
-fail_tab, built_tab, filings_tab, study_tab, time_tab = st.tabs(
+# filing, the same method browsable one concept at a time, then how much of any
+# filing can be confirmed at all, and finally how the confirmed figures move
+# between filings. Coverage before temporal — the scale of the gap has to land
+# before its behaviour over time means anything.
+fail_tab, built_tab, filings_tab, match_tab, study_tab, time_tab = st.tabs(
     ["Where models fail", "What we built", "Filing report",
-     "How much can be checked", "How figures change"])
+     "Does the number match?", "How much can be checked", "How figures change"])
 
 
 # --- where models fail ------------------------------------------------------
@@ -377,6 +378,175 @@ with time_tab:
             m[2].metric("confidence", f"{r.get('matched_cos', 0):.2f}")
             st.caption("compared as a year-over-year change" if r["is_change"]
                        else "compared as a total")
+
+
+# --- claim against filing, one concept at a time ----------------------------
+#
+# The concrete artifact: what Item 7 said, what was filed, and how far apart
+# they are — browsable by the concept the sentence was pinned to, because XBRL
+# is a fixed vocabulary and the concept is the only grouping a reader can act on.
+#
+# Two things here are deliberate and both cost the page some confidence.
+#
+# There is no red cross. A large gap in this corpus has never once turned out to
+# be a bank misreporting; every one inspected was a wrong pin, a near-miss pin,
+# or a sentence the splitter merged. Rendering those as contradictions would
+# publish our own bugs under JPMorgan's name. browse.py's header carries the
+# three examples.
+#
+# And the picker shows each pin's own record, because a concept that collected
+# 40 claims and landed on none of them is one bad pin applied 40 times. A reader
+# who clicks into that finds the tool wrong, not the filer — so it is labelled
+# before they click, not after.
+
+VERDICT = {
+    "agrees":       ("✅", "agrees",              "#1a7f37", "#3fb950"),
+    "basis":        ("⚠️", "different basis",     "#9a6700", "#d29922"),
+    "incomparable": ("❔", "too far to compare",  "#57606a", "#8b949e"),
+}
+
+with match_tab:
+    import html as _html
+
+    data = report_mod.load_json("browse.json", {})
+    if not data:
+        st.info("Run `python3 browse.py` to build browse.json.")
+    else:
+        st.markdown("### What Item 7 says, against what was filed")
+        st.caption(
+            "655 numeric claims from JPMorgan's Item 7, fiscal years 2011–2025. "
+            "Each was pinned to a filed concept **by its wording alone** — the "
+            "figure was never consulted when choosing the concept, so a gap "
+            "here is a measurement rather than a leftover."
+        )
+
+        concepts = data["concepts"]
+        hide = st.checkbox(
+            f"Hide the {sum(1 for c in concepts if c['tier'] == 'broken')} concepts "
+            "whose pin never lands within 10%", value=True,
+            help="These are our retrieval failures, not the filer's. They are "
+                 "kept visible rather than deleted so a refusal cannot be "
+                 "mistaken for a clean result.")
+        shown = [c for c in concepts if not (hide and c["tier"] == "broken")]
+
+        TIER_MARK = {"works": "●●●", "partial": "●○○", "broken": "○○○"}
+        pick = st.selectbox(
+            f"{len(shown)} concepts · sorted by how often the pin lands",
+            range(len(shown)),
+            format_func=lambda i: (
+                f"{TIER_MARK[shown[i]['tier']]}  {shown[i]['label'][:52]}  — "
+                f"{shown[i]['n']} claims, {shown[i]['plausible']} comparable"))
+        c = shown[pick]
+        rows = data["claims"][c["tag"]]
+
+        st.code(f"us-gaap:{c['tag']}", language="text")
+
+        if c["tier"] == "broken":
+            st.error(
+                f"**This pin never lands.** {c['n']} claims were pinned to this "
+                "concept and not one came within 10% of the filed value. That is "
+                "one bad pin applied "
+                f"{c['n']} times, not {c['n']} disagreements — read the rows as "
+                "our retrieval failing, not as anything about JPMorgan."
+            )
+        elif c["tier"] == "partial":
+            st.warning(
+                f"**Over-applied.** The pin landed on {c['plausible']} of "
+                f"{c['n']} claims ({c['plausible']/c['n']:.0%}). The comparable "
+                "rows below are worth reading; the rest are sentences this "
+                "concept attracted and does not describe."
+            )
+        else:
+            st.success(
+                f"**This pin has a record.** It landed on {c['plausible']} of "
+                f"{c['n']} claims ({c['plausible']/c['n']:.0%}), so a gap on this "
+                "concept is worth taking seriously."
+            )
+
+        m = st.columns(3)
+        m[0].metric("agrees", c["agrees"], help="within 1.5% — prose rounds")
+        m[1].metric("different basis", c["basis"], help="1.5% to 10% apart")
+        m[2].metric("too far to compare", c["incomparable"], help="over 10% apart")
+
+        if c["systematic"]:
+            sy = c["systematic"]
+            st.info(
+                f"**The prose sits consistently {sy['direction']} the filed "
+                f"figure** — all {sy['n']} comparable claims lean the same way, "
+                f"median {sy['median']:+.1%}. A gap that repeats with one sign is "
+                "the signature of a scope difference: the sentence means "
+                "something slightly wider or narrower than the tag. A gap that "
+                "flips sign year to year is noise."
+            )
+
+        comparable = [r for r in rows if r["verdict"] != "incomparable"]
+        st.markdown(f"#### {len(comparable)} comparable, closest first")
+        if not comparable:
+            st.caption("None. Every claim on this concept is more than 10% away.")
+
+        show_all = st.checkbox(f"Also show the {len(rows)-len(comparable)} "
+                               "claims too far apart to compare", value=False)
+        listing = rows if show_all else comparable
+
+        cards = []
+        for r in listing[:60]:
+            icon, word, lt, dk = VERDICT[r["verdict"]]
+            sent = _html.escape(r["sentence"])
+            fig = _html.escape(r["figure"])
+            if fig in sent:
+                sent = sent.replace(fig, f"<mark>{fig}</mark>", 1)
+            gap = ("exact" if r["gap"] is not None and abs(r["gap"]) < 0.0005
+                   else f"{r['gap']:+.1%}" if r["gap"] is not None else "—")
+            filed = f"${r['filed']/1e9:,.2f}B" if r["filed"] else "—"
+            cards.append(
+                f'<div class="cl {r["verdict"]}">'
+                f'<div class="hd"><span class="v">{icon} {word}</span>'
+                f'<span class="g">{gap}</span></div>'
+                f'<div class="pair"><span class="k">Item 7 says</span>'
+                f'<span class="a">{fig}</span>'
+                f'<span class="k">XBRL filed</span><span class="b">{filed}</span>'
+                f'<span class="k">fiscal year</span><span>FY{r["fy"]}, in the '
+                f'FY{r["doc_fy"]} filing</span></div>'
+                f'<blockquote>{sent}</blockquote></div>')
+
+        st.markdown(svg(f"""<style>
+.cls{{--ln:#e3e3e0;--ink:#1a1a19;--dim:#57606a;--q:#f6f6f4;
+      display:flex;flex-direction:column;gap:9px;margin:.3rem 0 .6rem}}
+@media (prefers-color-scheme:dark){{.cls{{--ln:#2f2f2d;--ink:#e8e8e4;
+      --dim:#a8a8a0;--q:#242423}}}}
+.cls .cl{{border:1px solid var(--ln);border-left-width:4px;border-radius:7px;
+      padding:11px 15px 12px}}
+.cls .agrees{{border-left-color:#1a7f37}} .cls .basis{{border-left-color:#9a6700}}
+.cls .incomparable{{border-left-color:#8b949e}}
+.cls .hd{{display:flex;justify-content:space-between;gap:12px;
+      font:600 13px ui-sans-serif,system-ui,sans-serif;color:var(--ink)}}
+.cls .g{{font-variant-numeric:tabular-nums;color:var(--dim);font-weight:400}}
+.cls .pair{{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;
+      margin:8px 0 0;font-size:13px;color:var(--ink)}}
+.cls .k{{color:var(--dim);font-size:11.5px;text-transform:uppercase;
+      letter-spacing:.04em;align-self:center}}
+.cls .a,.cls .b{{font-variant-numeric:tabular-nums;font-weight:600}}
+.cls blockquote{{margin:9px 0 0;padding:7px 11px;background:var(--q);
+      border-radius:5px;font-size:12.5px;line-height:1.55;color:var(--dim)}}
+.cls mark{{background:#ffe08a;color:#1a1a19;padding:0 2px;border-radius:2px}}
+@media (prefers-color-scheme:dark){{.cls mark{{background:#6b5600;color:#fff}}}}
+</style><div class="cls">{"".join(cards)}</div>"""), unsafe_allow_html=True)
+
+        if len(listing) > 60:
+            st.caption(f"Showing 60 of {len(listing)}.")
+
+        st.divider()
+        st.caption(
+            "**Why there is no red cross.** Every large gap inspected by hand "
+            "was a wrong pin, a near-miss pin (*“$2.7 billion of authorized "
+            "repurchase capacity **remained**”* pinned to the authorised amount "
+            "rather than the remaining amount), or a sentence the splitter "
+            "merged with a cross-reference line. None was a bank misreporting. "
+            "A red cross would need a pin confirmed by hand, on a concept with a "
+            "record, with a gap too large to be rounding or scope — there are "
+            "currently none, and inventing the category would publish our own "
+            "bugs under JPMorgan's name."
+        )
 
 
 # --- the study --------------------------------------------------------------
