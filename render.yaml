@@ -378,31 +378,48 @@ services:
         value: "3.12.3"
 
   # ---------------------------------------------------------------------------
-  # groundgate — the verification record, as a public page.
+  # groundgate — the citation check, as something a visitor can run.
   #
-  # A static site rather than a Python service, because the page is a page: the
-  # measurement it reports was taken offline by blind_probe.py and the verdicts
-  # were computed against JPMorgan's filed facts before publishing. Nothing here
-  # calls a model or the SEC at request time, so there is no key to leak, no
-  # cold start, and no way for a visitor to run up a bill.
+  # A Streamlit service rather than the static page it replaces. The static
+  # version explained the check and showed a recorded run, which is a PDF with a
+  # stylesheet: a sceptic could read it and still not believe fabricated
+  # citations happen. Here they type one and watch it blocked.
   #
-  # It is also the one service on this file that a stranger can be sent to
-  # without explanation, which is the point of it existing separately from
-  # capstone-claim-auditor rather than as a sixth tab there. That app is about
-  # bank filings; this page is about a check that applies to any assistant that
-  # cites anything.
+  # The first tab needs no key and calls no model — it is a lookup against the
+  # concepts a filer has actually filed, so it is instant and free however many
+  # people press it. Only "Watch a model try" costs anything, on a button, one
+  # call at a time. Without OPENAI_API_KEY that tab says so and points at the
+  # recorded run rather than failing when a visitor tries it.
+  #
+  # Kept separate from capstone-claim-auditor deliberately. That app is about
+  # bank filings and a stranger has to infer the general point; this one is
+  # about a check that applies to any assistant citing anything, and is the link
+  # that can be sent with no explanation.
   # ---------------------------------------------------------------------------
   - type: web
     name: groundgate
-    runtime: static
+    runtime: python
+    plan: free
     rootDir: ai-engineering-bootcamp-v2/groundgate
-    # Nothing to build — site/ is committed HTML. An explicit no-op rather than
-    # an empty string, which some blueprint validations reject outright and
-    # which then fails at create time rather than at review time.
-    buildCommand: echo "static site, nothing to build"
-    staticPublishPath: site
+    buildCommand: pip install -r requirements.txt
+    startCommand: >
+      streamlit run app.py
+      --server.port $PORT
+      --server.address 0.0.0.0
+      --server.headless true
 
-    headers:
-      - path: /*
-        name: X-Content-Type-Options
-        value: nosniff
+    envVars:
+      - key: OPENAI_MODEL
+        value: gpt-4o
+
+      # Only the live-model tab needs this. Left blank the page still works and
+      # says which tab is unavailable, which is the behaviour a missing key
+      # should have rather than a stack trace on first use.
+      - key: OPENAI_API_KEY
+        sync: false
+
+      - key: SEC_USER_AGENT
+        value: Tharaka Jayalath taj.aravinda@gmail.com
+
+      - key: PYTHON_VERSION
+        value: "3.12.3"

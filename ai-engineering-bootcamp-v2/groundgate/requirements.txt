@@ -1,0 +1,12 @@
+# The gate itself needs nothing. These are for the page that demonstrates it.
+streamlit>=1.35.0
+requests>=2.32.0
+python-dotenv>=1.0.0
+
+# Only the "Watch a model try" tab imports this, and only on a button press.
+# Pinned anyway rather than left to arrive through something else: a dependency
+# of a dependency holding up a feature is a failure that surfaces on a deployed
+# page at the moment a visitor tries it.
+openai>=1.40
+
+pytest>=8.0.0
