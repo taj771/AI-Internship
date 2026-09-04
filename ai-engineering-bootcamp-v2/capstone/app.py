@@ -77,7 +77,7 @@ st.markdown(
     'border:1px solid rgba(128,128,128,.28);border-left:3px solid #14526b;'
     'border-radius:3px">The written record — how this was measured, and one claim '
     'it retracted — is at '
-    '<a href="https://groundgate-record.onrender.com" target="_blank"><b>groundgate.onrender.com</b></a>.'
+    '<a href="https://groundgate.onrender.com" target="_blank"><b>groundgate.onrender.com</b></a>.'
     '</div>', unsafe_allow_html=True)
 
 # Order is the argument: the problem, the method, the method running on one
@@ -170,7 +170,7 @@ with fail_tab:
                 st.warning(
                     "No model key on this instance, so this cannot call one. The "
                     "recorded run of exactly this experiment is at "
-                    "[groundgate-record.onrender.com](https://groundgate-record.onrender.com) — "
+                    "[groundgate.onrender.com](https://groundgate.onrender.com) — "
                     "40 questions, the figure right once in eleven.")
             else:
                 from openai import OpenAI
@@ -1228,7 +1228,7 @@ with built_tab:
         "usually sits beside a *correct* figure — the pairing that makes it "
         "dangerous, because whoever checks the number finds it right. **At forty "
         "that was 0 of 11** and the claim was retracted. The full record is at "
-        "[groundgate-record.onrender.com](https://groundgate-record.onrender.com).")
+        "[groundgate.onrender.com](https://groundgate.onrender.com).")
     st.caption(
         "The library, its twelve tests and the run that produced these numbers "
         "are in `ai-engineering-bootcamp-v2/groundgate/`.")
@@ -1424,5 +1424,5 @@ with gate_tab:
         "does not establish that it is founded. Measured over 40 blinded questions: "
         "29 declined, 11 committed, 2 cited a concept the filer had never used. "
         "The full record, including a claim it retracted, is at "
-        "[groundgate-record.onrender.com](https://groundgate-record.onrender.com)."
+        "[groundgate.onrender.com](https://groundgate.onrender.com)."
     )
