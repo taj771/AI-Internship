@@ -421,8 +421,8 @@ with study_tab:
         cards = "".join(
             f'<div class="lk"><div class="sw" style="background:{b["light"]}">'
             f'<span style="background:{b["dark"]}"></span></div>'
-            f'<div class="bd"><h4>{b["short"]}'
-            f'<span class="n">{b["count"]} claims · {b["share"]:.0%}</span></h4>'
+            f'<div class="bd"><div class="hd"><span>{b["short"]}</span>'
+            f'<span class="n">{b["count"]} claims · {b["share"]:.0%}</span></div>'
             f'<p>{b["plain"]}</p>'
             f'<blockquote>“…{b["example"]}”</blockquote></div></div>'
             for b in bands
@@ -438,8 +438,9 @@ with study_tab:
 @media (prefers-color-scheme:dark){{.lkey .sw{{background:none!important}}
        .lkey .sw span{{display:block;height:100%}}}}
 .lkey .bd{{padding:11px 15px 12px}}
-.lkey h4{{margin:0 0 4px;font:600 14px ui-sans-serif,system-ui,sans-serif;
-       color:var(--ink);display:flex;justify-content:space-between;gap:14px}}
+.lkey .hd{{margin:0 0 5px;font:600 14px ui-sans-serif,system-ui,sans-serif;
+       color:var(--ink);display:flex;justify-content:space-between;
+       align-items:baseline;gap:14px}}
 .lkey .n{{font-weight:400;font-size:12.5px;color:var(--dim);white-space:nowrap;
        font-variant-numeric:tabular-nums}}
 .lkey p{{margin:0;font-size:13.5px;line-height:1.55;color:var(--ink)}}
