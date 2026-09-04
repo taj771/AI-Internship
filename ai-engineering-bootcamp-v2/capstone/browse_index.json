@@ -1,0 +1,62 @@
+[
+  {
+    "ticker": "BAC",
+    "name": "Bank of America",
+    "claims": 1078,
+    "concepts": 68,
+    "agrees": 29,
+    "basis": 18,
+    "incomparable": 1031,
+    "works": 5,
+    "partial": 12,
+    "broken": 51
+  },
+  {
+    "ticker": "C",
+    "name": "Citigroup",
+    "claims": 544,
+    "concepts": 61,
+    "agrees": 17,
+    "basis": 9,
+    "incomparable": 518,
+    "works": 1,
+    "partial": 11,
+    "broken": 49
+  },
+  {
+    "ticker": "JPM",
+    "name": "JPMorgan",
+    "claims": 655,
+    "concepts": 54,
+    "agrees": 26,
+    "basis": 36,
+    "incomparable": 593,
+    "works": 3,
+    "partial": 11,
+    "broken": 40
+  },
+  {
+    "ticker": "MS",
+    "name": "Morgan Stanley",
+    "claims": 505,
+    "concepts": 45,
+    "agrees": 9,
+    "basis": 13,
+    "incomparable": 483,
+    "works": 1,
+    "partial": 7,
+    "broken": 37
+  },
+  {
+    "ticker": "WFC",
+    "name": "Wells Fargo",
+    "claims": 569,
+    "concepts": 66,
+    "agrees": 32,
+    "basis": 18,
+    "incomparable": 519,
+    "works": 5,
+    "partial": 10,
+    "broken": 51
+  }
+]

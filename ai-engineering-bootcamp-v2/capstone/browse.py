@@ -2,8 +2,9 @@
 
     python3 browse.py
 
-Reads consistency.jsonl, writes browse.json. No network, no model — this is a
-regrouping of stage 2, not a new measurement.
+Reads consistency.jsonl, writes one browse_<TICKER>.json per filer plus a
+browse_index.json. No network, no model — this is a regrouping of stage 2, not a
+new measurement.
 
 
 WHY THIS READS consistency.jsonl AND NOT join.jsonl
@@ -64,9 +65,14 @@ disagreements — it is one bad pin applied 40 times, and a reader who clicks th
 first one finds the tool wrong rather than the filer. So each concept ships with
 how often its pin lands, and the tiers are:
 
-    works    >= 3 plausible claims and >= 20% of its claims plausible   3 concepts
-    partial  at least one plausible claim                              11 concepts
-    broken   never once landed within 10%                              40 concepts
+    works    >= 3 plausible claims and >= 20% of its claims plausible
+    partial  at least one plausible claim
+    broken   never once landed within 10%
+
+For JPMorgan that split 3 / 11 / 40, which is the shape to expect: most concepts
+a wording-only pin proposes are ones it should not have. The counts are written
+per filer into browse_index.json rather than quoted here, because a number in a
+docstring is a number nobody re-runs.
 
 "Plausible" is |gap| <= 10%: close enough that the pin is probably on the right
 concept. It is not a claim about the filer, only about our retrieval.
@@ -76,7 +82,7 @@ from __future__ import annotations
 
 import json
 import statistics
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -119,9 +125,11 @@ def systematic(rows: list[dict]) -> dict | None:
             "direction": "above" if pos else "below"}
 
 
-def main() -> int:
-    rows = [json.loads(l) for l in (HERE / "consistency.jsonl").open(encoding="utf-8")]
+NAMES = {"JPM": "JPMorgan", "BAC": "Bank of America", "MS": "Morgan Stanley",
+         "WFC": "Wells Fargo", "C": "Citigroup", "GS": "Goldman Sachs"}
 
+
+def build(rows: list[dict]) -> dict:
     by: dict[str, list[dict]] = defaultdict(list)
     for r in rows:
         by[r["pinned_tag"]].append(r)
@@ -155,19 +163,39 @@ def main() -> int:
     rank = {"works": 0, "partial": 1, "broken": 2}
     concepts.sort(key=lambda c: (rank[c["tier"]], -c["plausible"], -c["n"]))
 
-    out = {"agree_tolerance": AGREE, "comparable_tolerance": COMPARABLE,
-           "concepts": concepts, "claims": claims}
-    (HERE / "browse.json").write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+    return {"agree_tolerance": AGREE, "comparable_tolerance": COMPARABLE,
+            "concepts": concepts, "claims": claims}
 
-    tot = {k: sum(c[k] for c in concepts) for k in ("n", "agrees", "basis", "incomparable")}
-    print(f"  {tot['n']} claims across {len(concepts)} concepts")
-    print(f"    agrees        {tot['agrees']:>4}   within {AGREE:.1%}")
-    print(f"    basis         {tot['basis']:>4}   {AGREE:.1%}–{COMPARABLE:.0%} apart")
-    print(f"    incomparable  {tot['incomparable']:>4}   pin too far to compare")
-    for t in ("works", "partial", "broken"):
-        cs = [c for c in concepts if c["tier"] == t]
-        print(f"    {t:8} {len(cs):>3} concepts, {sum(c['n'] for c in cs):>4} claims")
-    print(f"  wrote browse.json ({(HERE / 'browse.json').stat().st_size / 1024:,.0f} KB)")
+
+def main() -> int:
+    rows = [json.loads(l) for l in (HERE / "consistency.jsonl").open(encoding="utf-8")]
+    # One file per filer rather than one keyed by filer. The app loads exactly
+    # the bank a visitor picked; a single 1.5 MB blob would be parsed in full to
+    # render one of five.
+    index = []
+    for ticker in sorted({r["ticker"] for r in rows}):
+        mine = [r for r in rows if r["ticker"] == ticker]
+        out = build(mine)
+        path = HERE / f"browse_{ticker}.json"
+        path.write_text(json.dumps(out, ensure_ascii=False), encoding="utf-8")
+
+        cs = out["concepts"]
+        tot = {k: sum(c[k] for c in cs) for k in ("n", "agrees", "basis", "incomparable")}
+        tiers = Counter(c["tier"] for c in cs)
+        index.append({"ticker": ticker, "name": NAMES.get(ticker, ticker),
+                      "claims": tot["n"], "concepts": len(cs),
+                      "agrees": tot["agrees"], "basis": tot["basis"],
+                      "incomparable": tot["incomparable"],
+                      "works": tiers["works"], "partial": tiers["partial"],
+                      "broken": tiers["broken"]})
+        print(f"  {ticker:4} {tot['n']:>5} claims  {len(cs):>3} concepts   "
+              f"agree {tot['agrees']:>3}  basis {tot['basis']:>3}  "
+              f"far {tot['incomparable']:>4}   "
+              f"tiers {tiers['works']}/{tiers['partial']}/{tiers['broken']}   "
+              f"-> {path.name} ({path.stat().st_size / 1024:,.0f} KB)")
+
+    (HERE / "browse_index.json").write_text(json.dumps(index, indent=2), encoding="utf-8")
+    print(f"  wrote browse_index.json ({len(index)} filers)")
     return 0
 
 

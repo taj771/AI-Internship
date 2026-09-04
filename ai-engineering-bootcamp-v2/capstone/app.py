@@ -415,14 +415,14 @@ with time_tab:
 # it and the numbers on tab 1 are reported against that wording; silently
 # changing the prompt under a published result would make the two disagree with
 # no record of why.
-BLIND_ASK = """Below is one sentence from JPMorgan Chase's 10-K, Item 7, for
+BLIND_ASK = """Below is one sentence from {company}'s 10-K, Item 7, for
 fiscal year {fy}. Every figure in it has been removed.
 
     {masked}
 
 The removed figure marked [[ ? ]] is the one to identify.
 
-Which exact XBRL tag did JPMorgan Chase file it under, and what value did they
+Which exact XBRL tag did {company} file it under, and what value did they
 file for fiscal year {fy}?
 
 Answer in exactly this shape and nothing else:
@@ -462,17 +462,17 @@ def redact(sentence: str, figure: str) -> str:
 
 
 @st.cache_resource(show_spinner=False)
-def filer_facts() -> dict:
-    """Every us-gaap concept JPMorgan has ever filed, parsed once per process.
+def filer_facts(ticker: str = "JPM") -> dict:
+    """Every us-gaap concept this filer has ever filed, parsed once per process.
 
     Cached as a resource rather than data: it is 8 MB of JSON and re-parsing it
     on every rerun would cost more than the model call it is checking.
     """
     import prepare_evidence as _pe
-    return _pe.company_facts("JPM")["facts"]["us-gaap"]
+    return _pe.company_facts(ticker)["facts"]["us-gaap"]
 
 
-def check_tag(tag: str | None, fy: int) -> tuple[str, float | None, str | None]:
+def check_tag(tag: str | None, fy: int, ticker: str = "JPM") -> tuple[str, float | None, str | None]:
     """Did this filer actually file that tag, and what value for that year?
 
     This is the citation check, and it is the part of the comparison that could
@@ -493,7 +493,7 @@ def check_tag(tag: str | None, fy: int) -> tuple[str, float | None, str | None]:
     # unfairness as scoring a synonym wrong — a formatting difference dressed up
     # as a fabrication.
     tag = re.sub(r"^(us[-_]?gaap|jpm)[:_]", "", tag.strip(), flags=re.I)
-    part = filer_facts().get(tag)
+    part = filer_facts(ticker).get(tag)
     if part is None:
         return "not_filed", None, tag
     import prepare_evidence as _pe
@@ -534,18 +534,39 @@ VERDICT = {
 with match_tab:
     import html as _html
 
-    data = report_mod.load_json("browse.json", {})
-    if not data:
-        st.info("Run `python3 browse.py` to build browse.json.")
+    index = report_mod.load_json("browse_index.json", [])
+    if not index:
+        st.info("Run `python3 browse.py` to build the browse files.")
     else:
         st.markdown("### What Item 7 says, against what was filed")
         st.caption(
-            "655 numeric claims from JPMorgan's Item 7, fiscal years 2011–2025. "
-            "Each was pinned to a filed concept **by its wording alone** — the "
-            "figure was never consulted when choosing the concept, so a gap "
-            "here is a measurement rather than a leftover."
+            f"{sum(f['claims'] for f in index):,} claims across five banks, "
+            "fiscal years 2011–2025. Each was pinned to a filed concept **by "
+            "its wording alone** — the figure was never consulted when choosing "
+            "the concept, so a gap here is a measurement rather than a leftover."
         )
 
+        # A bank picker, and the pin's record for that bank beside it. The
+        # wording-only pin lands on 7-13% of a filer's claims and agrees on a
+        # few percent of those, everywhere — which is worth a reader seeing
+        # before they browse, because otherwise the first empty concept looks
+        # like a bug rather than the normal case.
+        by_ticker = {f["ticker"]: f for f in index}
+        order = [t for t in ("JPM", "BAC", "MS", "WFC", "C") if t in by_ticker]
+        bank = st.selectbox("Bank", order, key="mt_bank",
+                            format_func=lambda t: by_ticker[t]["name"])
+        f = by_ticker[bank]
+        b = st.columns(4)
+        b[0].metric("claims pinned", f"{f['claims']:,}")
+        b[1].metric("agree within 1.5%", f["agrees"])
+        b[2].metric("different basis", f["basis"])
+        b[3].metric("concepts", f"{f['works']} / {f['partial']} / {f['broken']}",
+                    help="pin works / partial / never lands")
+
+        data = report_mod.load_json(f"browse_{bank}.json", {})
+        if not data:
+            st.info(f"No browse file for {bank}.")
+            st.stop()
         concepts = data["concepts"]
         hide = st.checkbox(
             f"Hide the {sum(1 for c in concepts if c['tier'] == 'broken')} concepts "
@@ -685,7 +706,8 @@ with match_tab:
                     "prompt. It has to produce the number, from memory or from "
                     "the tool."
                 )
-                st.code(BLIND_ASK.format(fy=r["fy"], masked=masked), language="text")
+                st.code(BLIND_ASK.format(fy=r["fy"], masked=masked,
+                                         company=f["name"]), language="text")
                 # The caveat sits above the button, not under the result, so a
                 # reader has it whichever way the run goes. It was missing until
                 # someone read a run where the tool-equipped model matched this
@@ -717,7 +739,8 @@ with match_tab:
                     from memory import MemoryStore
                     from stage4_grid import no_tools, parse, with_agent
 
-                    base = BLIND_ASK.format(fy=r["fy"], masked=masked)
+                    base = BLIND_ASK.format(fy=r["fy"], masked=masked,
+                                            company=f["name"])
                     with st.spinner("Two model runs against data.sec.gov…"):
                         try:
                             client = OpenAI(api_key=_os.getenv("OPENAI_API_KEY"))
@@ -743,7 +766,7 @@ with match_tab:
                             )
 
                 for label, (tag, value), note in cache.get(r["id"], []):
-                    # The tag is scored against what JPMorgan actually filed,
+                    # The tag is scored against what this filer actually filed,
                     # not against our pin. Three things had to be separated and
                     # an earlier version ran them together:
                     #
@@ -751,15 +774,15 @@ with match_tab:
                     #                  of the pinned FinancingReceivable... —
                     #                  both hold $21.94B for FY2012, so naming
                     #                  either one is right
-                    #   a wrong tag    a concept JPMorgan does file, holding a
+                    #   a wrong tag    a concept the filer does file, holding a
                     #                  different number
-                    #   a fabrication  a concept JPMorgan has never filed
+                    #   a fabrication  a concept this filer has never filed
                     #
                     # And the value is not scored at all for the no-tool
                     # condition, because ASK hands the figure to the model in
                     # the question. Repeating it is not recall, and marking it
                     # a hit made a fabricated citation look like a success.
-                    state, actual, clean = check_tag(tag, r["fy"])
+                    state, actual, clean = check_tag(tag, r["fy"], bank)
                     said = model_value(value)
                     value_ok = (said is not None and r["filed"]
                                 and abs(said - r["filed"]) / abs(r["filed"]) <= 0.015)
@@ -774,7 +797,7 @@ with match_tab:
                     if state == "declined":
                         mark, word = "❔", "declined"
                     elif state == "not_filed":
-                        mark, word = "⛔", "cited a tag JPMorgan has never filed"
+                        mark, word = "⛔", f"cited a tag {f['name']} has never filed"
                     elif state == "filed_other_years":
                         mark, word = "⚠️", f"real tag, nothing filed for FY{r['fy']}"
                     elif tag_holds_it and value_ok:
@@ -790,8 +813,8 @@ with match_tab:
                     g[0].caption("tag it answered")
                     g[0].code(tag or "— none —", language="text")
                     g[0].caption(
-                        "JPMorgan has never filed this tag" if state == "not_filed"
-                        else f"JPMorgan filed ${actual/1e9:,.2f}B under it for FY{r['fy']}"
+                        f"{f['name']} has never filed this tag" if state == "not_filed"
+                        else f"{f['name']} filed ${actual/1e9:,.2f}B under it for FY{r['fy']}"
                         if actual is not None
                         else "" if state == "declined"
                         else f"filed in other years, not FY{r['fy']}")
@@ -808,12 +831,12 @@ with match_tab:
                     st.caption(
                         "**Nothing here was given to the model.** The figure was "
                         "stripped from the question, and every tag it named was "
-                        "checked against JPMorgan's own filings afterwards. "
-                        "✅ and 🟰 both found it — JPMorgan files some numbers "
+                        f"checked against {f['name']}'s own filings afterwards. "
+                        "✅ and 🟰 both found it — banks file some numbers "
                         "under more than one concept, so naming either is right. "
                         "❌ named a concept the firm does file, holding a "
-                        "different number. **⛔ is the worst**: a concept "
-                        "JPMorgan has never filed — and it can appear beside a "
+                        "different number. **⛔ is the worst**: a concept the "
+                        "firm has never filed — and it can appear beside a "
                         "figure that is correct, so anyone checking the number "
                         "finds it right and assumes the source is too."
                     )
@@ -831,7 +854,7 @@ with match_tab:
             "A red cross would need a pin confirmed by hand, on a concept with a "
             "record, with a gap too large to be rounding or scope — there are "
             "currently none, and inventing the category would publish our own "
-            "bugs under JPMorgan's name."
+            "bugs under the filer's name."
         )
 
 

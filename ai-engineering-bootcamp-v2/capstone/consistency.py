@@ -100,9 +100,19 @@ def main() -> None:
                         "gap": gap, "agrees": abs(gap) <= TOLERANCE,
                         "restated": tag["restated"]})
 
-    with (HERE / "consistency.jsonl").open("w", encoding="utf-8") as fh:
-        for c in checked:
+    # Merge by filer, do not overwrite. Writing this file fresh each run is the
+    # same bug fetch_history.py, coverage.py and this script's own ticker
+    # detection all had: run it for a second bank and the first one's stage 2
+    # disappears, with no error and a smaller number as the only symptom.
+    out = HERE / "consistency.jsonl"
+    kept = [json.loads(l) for l in out.open(encoding="utf-8")] if out.exists() else []
+    kept = [r for r in kept if r["ticker"] != ticker]
+    with out.open("w", encoding="utf-8") as fh:
+        for c in kept + checked:
             fh.write(json.dumps(c, ensure_ascii=False) + "\n")
+    if kept:
+        print(f"  kept {len(kept):,} rows from "
+              + ", ".join(sorted({r["ticker"] for r in kept})))
 
     by_year = defaultdict(list)
     for c in checked:
@@ -124,7 +134,7 @@ def main() -> None:
 
     # The twenty pins a person has to check, so the rate above has an error bar.
     sample = checked[:: max(1, len(checked) // 20)][:20]
-    lines = ["# Twenty pins to check by hand", "",
+    lines = [f"# Twenty {ticker} pins to check by hand", "",
              "The consistency rate above assumes these pins are right. Nobody has",
              "established that. Mark each ✓ or ✗ — the score is the precision of the",
              "pinning, and it is the slack that belongs on the headline number.", "",
@@ -136,8 +146,9 @@ def main() -> None:
                   f"- pinned tag: `{c['pinned_tag']}` — {c['pinned_label']}",
                   f"- filed: ${c['filed']/1e9:,.2f}B  ·  gap {c['gap']*100:+,.1f}%",
                   "- is this the tag the sentence is about?  [ ] yes  [ ] no", ""]
-    (HERE / "pins_to_check.md").write_text("\n".join(lines), encoding="utf-8")
-    print(f"  wrote consistency.jsonl and pins_to_check.md ({len(sample)} pins)")
+    pins = HERE / f"pins_to_check_{ticker}.md"
+    pins.write_text("\n".join(lines), encoding="utf-8")
+    print(f"  wrote consistency.jsonl and {pins.name} ({len(sample)} pins)")
 
 
 if __name__ == "__main__":
