@@ -686,6 +686,22 @@ with match_tab:
                     "the tool."
                 )
                 st.code(BLIND_ASK.format(fy=r["fy"], masked=masked), language="text")
+                # The caveat sits above the button, not under the result, so a
+                # reader has it whichever way the run goes. It was missing until
+                # someone read a run where the tool-equipped model matched this
+                # pipeline exactly and asked the obvious question.
+                st.info(
+                    "**A fair test, on the easy claims.** Every claim you can "
+                    "run this on is one where our own pin landed *and* the "
+                    "filed figure corroborated it — that is what makes it "
+                    "scoreable. On the 593 claims where the pin did not land we "
+                    "have no answer to test a model against, so this comparison "
+                    "cannot show either side failing there. **Expect the "
+                    "tool-equipped model to do well here**: over 40 such claims "
+                    "it named the right concept 70% of the time. What it cannot "
+                    "do is tell you which 70% — 4 of those 40 were confident and "
+                    "wrong, and nothing in the answer says which."
+                )
                 if st.button("Run both conditions", key=f"mc_{r['id']}"):
                     import asyncio as _asyncio
                     import os as _os
