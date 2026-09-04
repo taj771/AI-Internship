@@ -155,6 +155,29 @@ SEGMENTS = {
     # 2025 filing does not say "Treasury & Securities Services". The exception
     # is "Investment Bank", which in modern filings appears only inside
     # "Commercial & Investment Bank" — hence the lookbehind.
+    # Bank of America reorganised twice inside this corpus: six segments in
+    # FY2011 (Deposits, Card Services, CRES, Global Commercial Banking, GBAM,
+    # GWIM), five from FY2012, four by FY2024. Every name it has used is listed,
+    # for the reason given above — a pattern holding only the modern four finds
+    # nothing before 2015.
+    #
+    # These were not typed from memory. mine_segments.py reads them out of the
+    # enumeration sentence each 10-K carries ("...through five business
+    # segments: ..."), which is why the abbreviations are here too: the prose
+    # says "GWIM" far more often than it spells the segment out.
+    #
+    # One name from that list is deliberately absent. "Deposits" was a reporting
+    # segment for FY2011 only and is an ordinary noun in bank prose for all
+    # fifteen years — it appears ten times in the FY2025 Item 7, none of them a
+    # segment reference. Including it would move firmwide sentences into the
+    # segment band, which is the band the study's main finding rests on.
+    "BAC": re.compile(
+        r"\b(Global Wealth & Investment Management|GWIM|"
+        r"Consumer Real Estate Services|CRES|Consumer & Business Banking|CBB|"
+        r"Global Commercial Banking|Global Banking & Markets|GBAM|"
+        r"Legacy Assets & Servicing|LAS|Card Services|"
+        r"Consumer Banking|Global Banking|Global Markets)\b"
+    ),
     "JPM": re.compile(
         r"\b(Consumer & Community Banking|CCB|Corporate & Investment Bank|CIB|"
         r"Commercial & Investment Bank|Asset & Wealth Management|AWM|"
@@ -259,7 +282,12 @@ SECTION_MARKERS = {
 def build_section_index(text: str, ticker: str) -> list[tuple[int, str | None]]:
     """Every section boundary in the document, sorted by position."""
     index = []
-    for pattern, name in SECTION_MARKERS[ticker]:
+    # A filer with no marker list yields no sections rather than a KeyError.
+    # Section is metadata — it does not enter any coverage bin — so a new filer
+    # is still fully measurable before someone has read its headings. What it
+    # must not do is look measured when it is not: section_for returns None and
+    # the app shows a blank rather than inventing one.
+    for pattern, name in SECTION_MARKERS.get(ticker, []):
         for match in re.finditer(pattern, text):
             index.append((match.start(), name))
     index.sort()

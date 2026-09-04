@@ -37,6 +37,7 @@ could pin, X% agreed" is a finding. X% on its own is not.
 
 from __future__ import annotations
 
+import argparse
 import json
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -63,7 +64,21 @@ def pin(facts: dict, idf: dict, sentence: str, fiscal_year: int) -> dict | None:
 
 def main() -> None:
     rows = [json.loads(l) for l in (HERE / "coverage.jsonl").open(encoding="utf-8")]
-    ticker = rows[0]["ticker"]
+    # coverage.jsonl now holds every filer, so a single ticker read off the
+    # first row would silently pin one bank's sentences against another bank's
+    # facts — every gap enormous, and nothing to say why.
+    ap2 = argparse.ArgumentParser(add_help=False)
+    ap2.add_argument("--ticker", default=None)
+    only, _ = ap2.parse_known_args()
+    if only.ticker:
+        rows = [r for r in rows if r["ticker"] == only.ticker.upper()]
+    tickers = sorted({r["ticker"] for r in rows})
+    if len(tickers) > 1:
+        raise SystemExit(
+            f"coverage.jsonl holds {len(tickers)} filers ({', '.join(tickers)}). "
+            "Pass --ticker to choose one; pinning one filer's prose against "
+            "another's facts is not a comparison.")
+    ticker = tickers[0]
     facts, idf = pe.company_facts(ticker), pe.build_idf(pe.company_facts(ticker))
 
     checked = []

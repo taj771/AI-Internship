@@ -47,7 +47,7 @@ from fetch_filings import (
 HERE = Path(__file__).parent
 OUT = HERE / "data" / "history"
 
-CIKS = {"JPM": "0000019617", "GS": "0000886982", "BAC": "0000070858", "WFC": "0000072971"}
+from prepare_evidence import CIKS  # one map, so the two cannot drift apart
 
 
 def all_10k_filings(cik: str) -> list[dict]:
@@ -109,26 +109,49 @@ def main() -> int:
     manifest = []
     for year, f in sorted(by_year.items()):
         cik_short = str(int(cik))
-        doc = f["document"]
-        if not doc:
-            docs = list_filing_documents(cik_short, f["accession"])
-            doc = docs[0]["name"] if docs else None
-        if not doc:
-            print(f"  FY{year}  no primary document found — skipped")
+
+        # Try every document in the filing, not just the primary one.
+        #
+        # Wells Fargo does not put its MD&A in the 10-K body at all. Item 7
+        # there reads "Information in response to this Item 7 can be found in
+        # the Annual Report to Shareholders under 'Financial Review'. That
+        # information is incorporated herein by reference." The discussion —
+        # 406,000 characters of it — sits in a second document in the same
+        # submission, and reading only the primary one returned zero years for
+        # the whole filer without a single error.
+        #
+        # EDGAR does not label which document is which in any way worth
+        # trusting: for FY2025 it reports the 89,000-character stub as primary
+        # and the real filing as secondary. So all of them are tried and the
+        # longest MD&A wins, which is the same "longest span" rule extract_mdna
+        # already uses internally to pick the section's end.
+        candidates = [d["name"] for d in list_filing_documents(cik_short, f["accession"])]
+        if f["document"] and f["document"] not in candidates:
+            candidates.insert(0, f["document"])
+        if not candidates:
+            print(f"  FY{year}  no documents listed — skipped")
             continue
 
+        best: tuple[str, str] | None = None
+        errors = []
+        for doc in candidates:
+            url = f"https://www.sec.gov/Archives/edgar/data/{cik_short}/{f['accession']}/{doc}"
+            try:
+                mdna = extract_mdna(html_to_text(get_text(url)))
+            except Exception as exc:  # noqa: BLE001 - one bad doc must not stop the rest
+                errors.append(f"{doc}: {type(exc).__name__}")
+                continue
+            if mdna and (best is None or len(mdna) > len(best[1])):
+                best = (doc, mdna)
+            time.sleep(0.12)
+
+        if best is None:
+            note = f" ({'; '.join(errors)})" if errors else ""
+            print(f"  FY{year}  Item 7 not located in any of "
+                  f"{len(candidates)} document(s){note}")
+            continue
+        doc, mdna = best
         url = f"https://www.sec.gov/Archives/edgar/data/{cik_short}/{f['accession']}/{doc}"
-        try:
-            html = get_text(url)
-            text = html_to_text(html)
-            mdna = extract_mdna(text)
-        except Exception as exc:  # noqa: BLE001 - one bad year must not stop the rest
-            print(f"  FY{year}  FAILED  {type(exc).__name__}: {exc}")
-            continue
-
-        if not mdna:
-            print(f"  FY{year}  Item 7 not located in {doc} ({len(text):,} chars of text)")
-            continue
 
         path = OUT / f"{ticker}-{year}-mdna.txt"
         path.write_text(mdna, encoding="utf-8")
@@ -141,8 +164,22 @@ def main() -> int:
         print(f"  FY{year}  {len(mdna):>8,} chars  {doc}")
         time.sleep(0.25)
 
-    (OUT / "manifest.json").write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    # Merge, do not overwrite. This script is run once per filer, and writing
+    # the manifest fresh each time meant the second filer silently deleted the
+    # first one's index — the .txt files stayed on disk, so nothing errored and
+    # nothing looked wrong until a study came back with a quarter of its corpus.
+    # Keyed by (ticker, fiscal year) so a re-fetch replaces its own rows only.
+    path = OUT / "manifest.json"
+    existing = json.loads(path.read_text(encoding="utf-8")) if path.exists() else []
+    merged = {(e["ticker"], str(e["fiscal_year"])): e for e in existing}
+    merged.update({(e["ticker"], str(e["fiscal_year"])): e for e in manifest})
+    rows = sorted(merged.values(), key=lambda e: (e["ticker"], str(e["fiscal_year"])))
+    path.write_text(json.dumps(rows, indent=2), encoding="utf-8")
+
+    others = len(rows) - len(manifest)
     print(f"\n{len(manifest)} of {len(by_year)} years captured -> {OUT}/")
+    print(f"manifest holds {len(rows)} filings"
+          + (f" ({others} from other runs, kept)" if others else ""))
     return 0
 
 

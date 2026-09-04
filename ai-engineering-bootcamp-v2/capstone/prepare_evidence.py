@@ -48,7 +48,23 @@ TO_LABEL = HERE / "to_label.jsonl"
 CACHE = HERE / ".cache"
 FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
 
-CIKS = {"GS": "0000886982", "JPM": "0000019617"}
+# The six largest US bank holding companies, which is the corpus CAPSTONE.md
+# argues for. Every number here was read out of the SEC's own
+# www.sec.gov/files/company_tickers.json rather than typed from memory: a wrong
+# CIK does not error, it fetches a different company's facts and every
+# comparison downstream is quietly against the wrong filer.
+#
+# This is the single source of truth — fetch_history.py imports it rather than
+# keeping its own copy, which had already drifted (it listed BAC and WFC while
+# this one did not).
+CIKS = {
+    "JPM": "0000019617",   # JPMorgan Chase & Co
+    "GS":  "0000886982",   # Goldman Sachs Group Inc
+    "BAC": "0000070858",   # Bank of America Corp
+    "WFC": "0000072971",   # Wells Fargo & Company
+    "C":   "0000831001",   # Citigroup Inc
+    "MS":  "0000895421",   # Morgan Stanley
+}
 
 SCALES = {"trillion": 1e12, "billion": 1e9, "million": 1e6, "thousand": 1e3}
 

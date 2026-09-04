@@ -156,9 +156,20 @@ def main() -> int:
               f"{kinds['derivable']:>10} {kinds['tagged_unreachable']:>8} "
               f"{kinds['rarely_tagged'] + kinds['never_tagged']:>14}")
 
+    # Merge, do not overwrite — the same lesson fetch_history.py learned the
+    # hard way. This script is run once per filer and every row already carries
+    # its ticker, so one file can hold the whole corpus and each run replaces
+    # only its own rows. Overwriting would delete the previous filer's study
+    # without erroring, and the loss would show up as a smaller number rather
+    # than as a failure.
+    kept = [json.loads(l) for l in OUT.open(encoding="utf-8")] if OUT.exists() else []
+    kept = [r for r in kept if r["ticker"] != ticker]
     with OUT.open("w", encoding="utf-8") as fh:
-        for c in everything:
+        for c in kept + everything:
             fh.write(json.dumps(c, ensure_ascii=False) + "\n")
+    if kept:
+        others = Counter(r["ticker"] for r in kept)
+        print(f"  kept {len(kept):,} rows from " + ", ".join(sorted(others)))
 
     total = len(everything)
     tagged = sum(1 for c in everything if c["has_tag"])

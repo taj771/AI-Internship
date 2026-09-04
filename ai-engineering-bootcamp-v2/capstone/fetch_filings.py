@@ -249,13 +249,32 @@ def _normalize(line: str) -> str:
     return re.sub(r"[^a-z0-9 ]", "", line.lower()).strip()
 
 
-def _followed_by_prose(text: str, pos: int) -> bool:
+def _followed_by_prose(text: str, pos: int, relaxed: bool = False) -> bool:
     """True if body text, not an index, follows the heading at `pos`."""
     line_end = text.find("\n", pos)
     if line_end == -1:
         return False
     window = text[line_end : line_end + PROSE_WINDOW_CHARS]
-    return any(len(line) >= PROSE_LINE_CHARS for line in window.split("\n"))
+    if not relaxed:
+        return any(len(line) >= PROSE_LINE_CHARS for line in window.split("\n"))
+    # Relaxed: measure paragraphs rather than lines.
+    #
+    # The strict test assumes the converter leaves a paragraph on one line,
+    # which is true of JPMorgan's and Goldman's filings and false of Morgan
+    # Stanley's: its HTML hard-wraps mid-sentence, so an ordinary paragraph
+    # arrives as a run of 55-character lines. Every genuine Item 7 heading was
+    # rejected as an index entry and the filer returned zero years for 2011-2018
+    # with no error — the same silent shape as the manifest overwrite and the
+    # Wells Fargo exhibit.
+    #
+    # It is a fallback and not the default because it is strictly more
+    # permissive, and more surviving starts changes which one filter 3 picks:
+    # applied unconditionally it let a later decoy win in JPMorgan FY2025 and
+    # Bank of America FY2011, cutting both spans below MIN_MDNA_CHARS and losing
+    # two years that already worked. Running it only when nothing at all
+    # survives leaves every captured year byte-identical.
+    blocks = [" ".join(b.split()) for b in window.split("\n\n")]
+    return any(len(b) >= PROSE_LINE_CHARS for b in blocks)
 
 
 def extract_mdna(text: str) -> str | None:
@@ -294,7 +313,8 @@ def extract_mdna(text: str) -> str | None:
         return None
 
     starts = sorted({m.start() for pat in START_PATTERNS for m in pat.finditer(text)})
-    starts = [p for p in starts if _followed_by_prose(text, p)]
+    strict = [p for p in starts if _followed_by_prose(text, p)]
+    starts = strict or [p for p in starts if _followed_by_prose(text, p, relaxed=True)]
     if not starts:
         return None
 
