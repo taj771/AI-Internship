@@ -376,3 +376,30 @@ services:
 
       - key: PYTHON_VERSION
         value: "3.12.3"
+
+  # ---------------------------------------------------------------------------
+  # groundgate — the verification record, as a public page.
+  #
+  # A static site rather than a Python service, because the page is a page: the
+  # measurement it reports was taken offline by blind_probe.py and the verdicts
+  # were computed against JPMorgan's filed facts before publishing. Nothing here
+  # calls a model or the SEC at request time, so there is no key to leak, no
+  # cold start, and no way for a visitor to run up a bill.
+  #
+  # It is also the one service on this file that a stranger can be sent to
+  # without explanation, which is the point of it existing separately from
+  # capstone-claim-auditor rather than as a sixth tab there. That app is about
+  # bank filings; this page is about a check that applies to any assistant that
+  # cites anything.
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: groundgate
+    runtime: static
+    rootDir: ai-engineering-bootcamp-v2/groundgate
+    buildCommand: ""
+    staticPublishPath: site
+
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
