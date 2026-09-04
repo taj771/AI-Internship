@@ -89,7 +89,9 @@ st.title("Groundgate")
 st.caption(
     "An answer is not verified because it names a source. This looks the cited "
     "source up in the system it claims to come from — and blocks the answer when "
-    "it isn't there. **Try it below.**"
+    "it isn't there. **Try it below.** &nbsp;·&nbsp; "
+    "[The written record](https://groundgate.onrender.com) — how it was measured, "
+    "and one claim it retracted."
 )
 
 check_tab, live_tab, record_tab = st.tabs(

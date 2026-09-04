@@ -378,26 +378,47 @@ services:
         value: "3.12.3"
 
   # ---------------------------------------------------------------------------
-  # groundgate — the citation check, as something a visitor can run.
+  # groundgate — the verification record, as a page to send with the capstone.
   #
-  # A Streamlit service rather than the static page it replaces. The static
-  # version explained the check and showed a recorded run, which is a PDF with a
-  # stylesheet: a sceptic could read it and still not believe fabricated
-  # citations happen. Here they type one and watch it blocked.
-  #
-  # The first tab needs no key and calls no model — it is a lookup against the
-  # concepts a filer has actually filed, so it is instant and free however many
-  # people press it. Only "Watch a model try" costs anything, on a button, one
-  # call at a time. Without OPENAI_API_KEY that tab says so and points at the
-  # recorded run rather than failing when a visitor tries it.
-  #
-  # Kept separate from capstone-claim-auditor deliberately. That app is about
-  # bank filings and a stranger has to infer the general point; this one is
-  # about a check that applies to any assistant citing anything, and is the link
-  # that can be sent with no explanation.
+  # A static site: the measurement it reports was taken offline by
+  # blind_probe.py and every verdict computed against JPMorgan's filed facts
+  # before publishing, so nothing calls a model or the SEC at request time.
+  # No key to leak, no cold start, no way for a visitor to run up a bill, and it
+  # can be read start to finish without pressing anything. That is what makes it
+  # the right thing to attach to a submission.
   # ---------------------------------------------------------------------------
   - type: web
     name: groundgate
+    runtime: static
+    rootDir: ai-engineering-bootcamp-v2/groundgate
+    # Nothing to build — site/ is committed HTML. An explicit no-op rather than
+    # an empty string, which some blueprint validations reject outright and
+    # which then fails at create time rather than at review time.
+    buildCommand: echo "static site, nothing to build"
+    staticPublishPath: site
+
+    headers:
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+
+  # ---------------------------------------------------------------------------
+  # groundgate-check — the same check, as something a visitor can run.
+  #
+  # Separate service from the page above rather than replacing it, because the
+  # two do different jobs. The page is read: it can be attached to a submission
+  # and gone through without pressing anything. This is operated: a sceptic who
+  # reads the page and still does not believe fabricated citations happen can
+  # type one here and watch it blocked.
+  #
+  # The first tab needs no key and calls no model — a lookup against the
+  # concepts a filer has actually filed — so it is instant and free however many
+  # people press it. Only "Watch a model try" costs anything, on a button, one
+  # call at a time. Without OPENAI_API_KEY that tab says which tab is
+  # unavailable rather than failing when a visitor tries it.
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: groundgate-check
     runtime: python
     plan: free
     rootDir: ai-engineering-bootcamp-v2/groundgate
@@ -412,9 +433,6 @@ services:
       - key: OPENAI_MODEL
         value: gpt-4o
 
-      # Only the live-model tab needs this. Left blank the page still works and
-      # says which tab is unavailable, which is the behaviour a missing key
-      # should have rather than a stack trace on first use.
       - key: OPENAI_API_KEY
         sync: false
 
