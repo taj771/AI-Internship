@@ -396,7 +396,10 @@ services:
     name: groundgate
     runtime: static
     rootDir: ai-engineering-bootcamp-v2/groundgate
-    buildCommand: ""
+    # Nothing to build — site/ is committed HTML. An explicit no-op rather than
+    # an empty string, which some blueprint validations reject outright and
+    # which then fails at create time rather than at review time.
+    buildCommand: echo "static site, nothing to build"
     staticPublishPath: site
 
     headers:
