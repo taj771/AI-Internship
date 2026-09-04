@@ -1,0 +1,33 @@
+{
+  "per_bank": [
+    {
+      "ticker": "JPM",
+      "checks": 43,
+      "agree": 31,
+      "rate": 0.7209302325581395,
+      "concepts": 10
+    }
+  ],
+  "watch": [
+    "Net income",
+    "Total net revenue",
+    "Net interest income",
+    "Noninterest income",
+    "Noninterest expense",
+    "Interest expense",
+    "Interest income",
+    "Income tax expense",
+    "Pre-tax income",
+    "Total assets",
+    "Total liabilities",
+    "Stockholders' equity",
+    "Total deposits",
+    "Goodwill",
+    "Retained earnings",
+    "Long-term debt",
+    "Cash from operating activities",
+    "Preferred stock dividends",
+    "Provision for credit losses",
+    "Accumulated other comprehensive income"
+  ]
+}

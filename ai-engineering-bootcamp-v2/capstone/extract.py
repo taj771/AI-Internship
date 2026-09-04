@@ -291,6 +291,21 @@ SECTION_MARKERS = {
         (r"Operational Risk Management", None),
     ],
     "JPM": [
+        # The pre-2014 segments. Their absence was not visible as an error: with
+        # no marker matching, every sentence in a FY2011 filing counted as
+        # firmwide, and watchlist.py compared divisional figures against the
+        # firm. That single gap produced 85 of its 132 checks and 1 of its 31
+        # agreements. Read off the FY2011 and FY2013 filings, where every
+        # top-level heading is ALL CAPS and appears exactly once.
+        (r"(?m)^INVESTMENT BANK\s*$", "Investment Bank"),
+        (r"(?m)^RETAIL FINANCIAL SERVICES\s*$", "Retail Financial Services"),
+        (r"(?m)^CARD SERVICES(?: & AUTO)?\s*$", "Card Services"),
+        (r"(?m)^TREASURY & SECURITIES SERVICES\s*$", "Treasury & Securities Services"),
+        (r"(?m)^COMMERCIAL BANKING\s*$", "Commercial Banking"),
+        (r"(?m)^ASSET MANAGEMENT\s*$", "Asset Management"),
+        (r"(?m)^CORPORATE/PRIVATE EQUITY\s*$", "Corporate/Private Equity"),
+        (r"(?m)^CORPORATE & INVESTMENT BANK\s*$", "Corporate & Investment Bank"),
+        (r"(?m)^INTERNATIONAL OPERATIONS\s*$", "International Operations"),
         (r"(?m)^CONSUMER & COMMUNITY BANKING\s*$", "Consumer & Community Banking"),
         (r"(?m)^COMMERCIAL & INVESTMENT BANK\s*$", "Commercial & Investment Bank"),
         (r"(?m)^ASSET & WEALTH MANAGEMENT\s*$", "Asset & Wealth Management"),
