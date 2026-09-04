@@ -512,9 +512,36 @@ with match_tab:
                                "claims too far apart to compare", value=False)
         listing = rows if show_all else comparable
 
-        cards = []
+        # The stylesheet is emitted once, above the loop. Every claim renders
+        # its own card so that a Streamlit expander can sit under it — one blob
+        # of HTML cannot carry sixty buttons, and the comparison only means
+        # anything directly beneath the row it is comparing against.
+        st.markdown(svg("""<style>
+.cls{--ln:#e3e3e0;--ink:#1a1a19;--dim:#57606a;--q:#f6f6f4;margin:.3rem 0 -.4rem}
+@media (prefers-color-scheme:dark){.cls{--ln:#2f2f2d;--ink:#e8e8e4;
+      --dim:#a8a8a0;--q:#242423}}
+.cls .cl{border:1px solid var(--ln);border-left-width:4px;border-radius:7px;
+      padding:11px 15px 12px}
+.cls .agrees{border-left-color:#1a7f37} .cls .basis{border-left-color:#9a6700}
+.cls .incomparable{border-left-color:#8b949e}
+.cls .hd{display:flex;justify-content:space-between;gap:12px;
+      font:600 13px ui-sans-serif,system-ui,sans-serif;color:var(--ink)}
+.cls .g{font-variant-numeric:tabular-nums;color:var(--dim);font-weight:400}
+.cls .pair{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;
+      margin:8px 0 0;font-size:13px;color:var(--ink)}
+.cls .k{color:var(--dim);font-size:11.5px;text-transform:uppercase;
+      letter-spacing:.04em;align-self:center}
+.cls .a,.cls .b{font-variant-numeric:tabular-nums;font-weight:600}
+.cls blockquote{margin:9px 0 0;padding:7px 11px;background:var(--q);
+      border-radius:5px;font-size:12.5px;line-height:1.55;color:var(--dim)}
+.cls mark{background:#ffe08a;color:#1a1a19;padding:0 2px;border-radius:2px}
+@media (prefers-color-scheme:dark){.cls mark{background:#6b5600;color:#fff}}
+</style>"""), unsafe_allow_html=True)
+
+        cache = st.session_state.setdefault("mc_results", {})
+
         for r in listing[:60]:
-            icon, word, lt, dk = VERDICT[r["verdict"]]
+            icon, word, _lt, _dk = VERDICT[r["verdict"]]
             sent = _html.escape(r["sentence"])
             fig = _html.escape(r["figure"])
             if fig in sent:
@@ -522,8 +549,9 @@ with match_tab:
             gap = ("exact" if r["gap"] is not None and abs(r["gap"]) < 0.0005
                    else f"{r['gap']:+.1%}" if r["gap"] is not None else "—")
             filed = f"${r['filed']/1e9:,.2f}B" if r["filed"] else "—"
-            cards.append(
-                f'<div class="cl {r["verdict"]}">'
+
+            st.markdown(svg(
+                f'<div class="cls"><div class="cl {r["verdict"]}">'
                 f'<div class="hd"><span class="v">{icon} {word}</span>'
                 f'<span class="g">{gap}</span></div>'
                 f'<div class="pair"><span class="k">Item 7 says</span>'
@@ -531,156 +559,83 @@ with match_tab:
                 f'<span class="k">XBRL filed</span><span class="b">{filed}</span>'
                 f'<span class="k">fiscal year</span><span>FY{r["fy"]}, in the '
                 f'FY{r["doc_fy"]} filing</span></div>'
-                f'<blockquote>{sent}</blockquote></div>')
+                f'<blockquote>{sent}</blockquote></div></div>'), unsafe_allow_html=True)
 
-        st.markdown(svg(f"""<style>
-.cls{{--ln:#e3e3e0;--ink:#1a1a19;--dim:#57606a;--q:#f6f6f4;
-      display:flex;flex-direction:column;gap:9px;margin:.3rem 0 .6rem}}
-@media (prefers-color-scheme:dark){{.cls{{--ln:#2f2f2d;--ink:#e8e8e4;
-      --dim:#a8a8a0;--q:#242423}}}}
-.cls .cl{{border:1px solid var(--ln);border-left-width:4px;border-radius:7px;
-      padding:11px 15px 12px}}
-.cls .agrees{{border-left-color:#1a7f37}} .cls .basis{{border-left-color:#9a6700}}
-.cls .incomparable{{border-left-color:#8b949e}}
-.cls .hd{{display:flex;justify-content:space-between;gap:12px;
-      font:600 13px ui-sans-serif,system-ui,sans-serif;color:var(--ink)}}
-.cls .g{{font-variant-numeric:tabular-nums;color:var(--dim);font-weight:400}}
-.cls .pair{{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;
-      margin:8px 0 0;font-size:13px;color:var(--ink)}}
-.cls .k{{color:var(--dim);font-size:11.5px;text-transform:uppercase;
-      letter-spacing:.04em;align-self:center}}
-.cls .a,.cls .b{{font-variant-numeric:tabular-nums;font-weight:600}}
-.cls blockquote{{margin:9px 0 0;padding:7px 11px;background:var(--q);
-      border-radius:5px;font-size:12.5px;line-height:1.55;color:var(--dim)}}
-.cls mark{{background:#ffe08a;color:#1a1a19;padding:0 2px;border-radius:2px}}
-@media (prefers-color-scheme:dark){{.cls mark{{background:#6b5600;color:#fff}}}}
-</style><div class="cls">{"".join(cards)}</div>"""), unsafe_allow_html=True)
+            # --- the same claim, without the pipeline -----------------------
+            #
+            # Two conditions, not three. An earlier draft ran a third that
+            # handed the model the concept this page pinned and asked it to
+            # confirm — which is exactly what the card above already shows, so
+            # it was answering a question the reader could already see answered.
+            # What is left is the comparison that is actually like-for-like:
+            # here is our answer, here is what a general model says when asked
+            # the same thing.
+            #
+            # Behind a button, per claim, cached. Two calls against a
+            # rate-limited API is ten to thirty seconds and a real bill; running
+            # them on page load would spend both on every visitor who scrolled.
+            with st.expander("Could a model have found this without the pipeline?"):
+                st.caption(
+                    "The row above is what this pipeline says. These are what a "
+                    "general model says when asked the same question — nothing "
+                    "precomputed, run live against `data.sec.gov` when you press "
+                    "the button."
+                )
+                if st.button("Run both conditions", key=f"mc_{r['id']}"):
+                    import asyncio as _asyncio
+                    import os as _os
+                    import tempfile as _tempfile
+                    import time as _time
 
-        if len(listing) > 60:
-            st.caption(f"Showing 60 of {len(listing)}.")
+                    # Imported here, not at the top of the module: a missing or
+                    # broken model dependency then costs this one button rather
+                    # than the whole page. The tabs that need no model at all
+                    # must stay readable on a box that cannot reach OpenAI.
+                    from openai import OpenAI
 
-        # --- run the models on this claim, live ---------------------------
-        #
-        # Tab 1 makes the case over 40 claims and a precomputed grid. A reader
-        # who does not believe it has no way to test it there. Here they can:
-        # pick one claim whose answer this page already shows, press a button,
-        # and watch a general model try to reach the same figure.
-        #
-        # Three conditions, and the third is deliberately unfair in our favour
-        # and labelled as such. Handing a model the concept our pipeline chose
-        # and asking it to confirm the number is a test of verification, not of
-        # retrieval, and its score is an upper bound rather than a skill.
-        #
-        # Everything is behind a button and cached per claim. Three model calls
-        # against a rate-limited API is fifteen to forty seconds and a real
-        # bill; running it on page load would spend both on every visitor who
-        # scrolled past.
+                    from memory import MemoryStore
+                    from stage4_grid import ASK, no_tools, parse, with_agent
 
-        st.divider()
-        st.markdown("#### Could a model have found this without the pipeline?")
+                    base = ASK.format(sentence=r["sentence"][:600],
+                                      figure=r["figure"], company="JPMorgan Chase",
+                                      fy=r["fy"])
+                    with st.spinner("Two model runs against data.sec.gov…"):
+                        try:
+                            client = OpenAI(api_key=_os.getenv("OPENAI_API_KEY"))
+                            got = [("Model alone, no tools",
+                                    parse(no_tools(client, base)),
+                                    "It cannot look anything up. A refusal here "
+                                    "is the correct answer — and still leaves "
+                                    "you to go and look.")]
+                            _time.sleep(2)
+                            store = MemoryStore(dsn="", sqlite_path=Path(
+                                _tempfile.gettempdir()) / "mc.db")
+                            got.append(("Model + SEC lookup tool",
+                                        parse(_asyncio.run(with_agent(base, store))),
+                                        "Full tool access, free to search as it "
+                                        "likes. This is the comparison that "
+                                        "matters."))
+                            cache[r["id"]] = got
+                        except Exception as exc:                  # noqa: BLE001
+                            st.error(
+                                f"The run failed: `{type(exc).__name__}: {exc}`. "
+                                "Everything else on this page is precomputed and "
+                                "unaffected — only this button needs a model."
+                            )
 
-        if not comparable:
-            st.caption(
-                "Nothing to test on this concept — a comparison needs a claim "
-                "whose pin is corroborated, and this concept has none."
-            )
-        else:
-            st.caption(
-                "Pick one of the corroborated claims above and run three "
-                "conditions live against `data.sec.gov`. **What counts as the "
-                "answer** is the concept this page pinned from the wording plus "
-                "the figure the SEC returned for it — two signals that agreed "
-                "without either being told about the other. That is not a "
-                "hand-established ground truth, and on a claim where they agree "
-                "to within 10% it is the best available."
-            )
-
-            labels = [f"FY{r['fy']} · {r['figure']} · {r['verdict']}" for r in comparable]
-            ci = st.selectbox("Claim", range(len(comparable)),
-                              format_func=lambda i: labels[i], key="mc_claim")
-            claim = comparable[ci]
-
-            st.markdown(f"> {claim['sentence'][:300]}".replace("$", chr(92) + "$"))
-            a, b = st.columns(2)
-            a.metric("the concept this page pinned", "", help=c["tag"])
-            a.code(c["tag"], language="text")
-            b.metric("the figure the SEC returned",
-                     f"${claim['filed']/1e9:,.2f}B" if claim["filed"] else "—")
-
-            run = st.button("Run the three conditions", type="primary",
-                            key=f"mc_run_{claim['id']}")
-            cache = st.session_state.setdefault("mc_results", {})
-
-            if run:
-                import asyncio as _asyncio
-                import tempfile as _tempfile
-                import time as _time
-
-                # Imported here, not at the top of the module. A missing or
-                # broken model dependency then costs this one button rather
-                # than the whole page — the tabs that need no model at all
-                # (the study, the coverage chart, every card above) must stay
-                # readable on a box that cannot reach OpenAI.
-                import os as _os
-
-                from openai import OpenAI
-
-                from memory import MemoryStore
-                from stage4_grid import ASK, no_tools, parse, with_agent
-
-                base = ASK.format(sentence=claim["sentence"][:600],
-                                  figure=claim["figure"], company="JPMorgan Chase",
-                                  fy=claim["fy"])
-                given = base + (
-                    "\n\nOur pipeline pinned this sentence to the tag "
-                    f"`{c['tag']}` from its wording alone. Verify that with the "
-                    "tool before answering.")
-
-                out = []
-                with st.spinner("Three model runs against data.sec.gov…"):
-                    try:
-                        client = OpenAI(api_key=_os.getenv("OPENAI_API_KEY"))
-                        out.append(("Model alone, no tools", parse(no_tools(client, base)),
-                                    "It cannot look anything up. A refusal here is "
-                                    "the correct answer."))
-                        _time.sleep(2)
-                        out.append(("Model + SEC lookup tool",
-                                    parse(_asyncio.run(with_agent(
-                                        base, MemoryStore(dsn="", sqlite_path=Path(
-                                            _tempfile.gettempdir()) / "mc.db")))),
-                                    "Full tool access, free to search as it likes. "
-                                    "This is the condition that matters."))
-                        _time.sleep(3)
-                        out.append(("Model + tool + our pin",
-                                    parse(_asyncio.run(with_agent(
-                                        given, MemoryStore(dsn="", sqlite_path=Path(
-                                            _tempfile.gettempdir()) / "mc.db")))),
-                                    "Handed the concept and asked to confirm it. "
-                                    "Advantaged by construction — an upper bound, "
-                                    "not a measurement of skill."))
-                        cache[claim["id"]] = out
-                    except Exception as exc:                      # noqa: BLE001
-                        st.error(
-                            f"The run failed: `{type(exc).__name__}: {exc}`. "
-                            "Everything else on this page is precomputed and "
-                            "unaffected — only this button needs a model."
-                        )
-
-            if claim["id"] in cache:
-                st.markdown("**What each condition answered**")
-                for label, (tag, value), note in cache[claim["id"]]:
+                for label, (tag, value), note in cache.get(r["id"], []):
                     # Two axes, because they come apart and the interesting
                     # cases are where they do. Asked about JPMorgan's FY2012
                     # allowance, the tool-equipped model answered
                     # LoansAndLeasesReceivableAllowance rather than the pinned
                     # FinancingReceivableAllowanceForCreditLosses — and both
-                    # tags hold $21.94B. Scoring the tag alone would have
-                    # marked a right answer wrong.
+                    # tags hold $21.94B. Scoring the tag alone would have marked
+                    # a right answer wrong.
                     same_tag = bool(tag) and tag.lower() == c["tag"].lower()
                     declined = not tag or tag.upper() == "UNKNOWN"
-                    got = model_value(value)
-                    same_val = (got is not None and claim["filed"]
-                                and abs(got - claim["filed"]) / abs(claim["filed"]) <= 0.015)
+                    val = model_value(value)
+                    same_val = (val is not None and r["filed"]
+                                and abs(val - r["filed"]) / abs(r["filed"]) <= 0.015)
                     if declined:
                         mark, verdict_word = "❔", "declined"
                     elif same_tag and same_val:
@@ -689,23 +644,27 @@ with match_tab:
                         mark, verdict_word = "🟰", "different concept, same number"
                     else:
                         mark, verdict_word = "❌", "different number"
-                    with st.container(border=True):
-                        st.markdown(f"{mark} **{label}** — {verdict_word}")
-                        g = st.columns(2)
-                        g[0].caption("tag it answered")
-                        g[0].code(tag or "— none —", language="text")
-                        g[1].caption("value it answered")
-                        g[1].code((value or "— none —")[:60], language="text")
-                        st.caption(note)
-                st.caption(
-                    "**🟰 is not a failure.** JPMorgan files some figures under "
-                    "more than one tag, and a model that names a different one "
-                    "holding the same value has found the number by another "
-                    "route. **❌ is the failure that matters** — a confident "
-                    "answer with a different figure, which is real and belongs "
-                    "to something else. **❔ is a refusal**, which is correct "
-                    "behaviour and still leaves you to go and look."
-                )
+
+                    st.markdown(f"{mark} **{label}** — {verdict_word}")
+                    g = st.columns(2)
+                    g[0].caption("tag it answered")
+                    g[0].code(tag or "— none —", language="text")
+                    g[1].caption("value it answered")
+                    g[1].code((value or "— none —")[:60], language="text")
+                    st.caption(note)
+
+                if cache.get(r["id"]):
+                    st.caption(
+                        "**🟰 is not a failure.** JPMorgan files some figures "
+                        "under more than one tag, and a model naming a different "
+                        "one that holds the same value has found the number by "
+                        "another route. **❌ is the failure that matters** — a "
+                        "confident answer with a different figure, which is real "
+                        "and belongs to something else."
+                    )
+
+        if len(listing) > 60:
+            st.caption(f"Showing 60 of {len(listing)}.")
 
         st.divider()
         st.caption(
