@@ -1272,12 +1272,17 @@ with gate_tab:
 
     st.divider()
     st.markdown(
-        "**Try to break it.** `us-gaap:Assets` and `us-gaap:NetIncomeLoss` are filed "
-        "by all five banks and pass. `us-gaap:ProvisionForCreditLosses` reads "
-        "perfectly and is filed by none of them. `us-gaap:Revenues` passes for Bank "
-        "of America and fails for Morgan Stanley, which files "
-        "`RevenuesNetOfInterestExpense` instead — for a bank the two are about "
-        "&#36;81 billion apart, and that pair is the failure this exists to catch.")
+        "**Try to break it.** `us-gaap:Assets`, `us-gaap:NetIncomeLoss` and "
+        "`us-gaap:Deposits` are filed by all five banks and pass. "
+        "`us-gaap:ProvisionForCreditLosses` and "
+        "`us-gaap:AllowanceForLoanAndLeaseLosses` read perfectly, are real "
+        "concepts in the taxonomy, and **not one of the five has ever filed "
+        "either** — both are blocked.\n\n"
+        "The sharp one is `us-gaap:RevenuesNetOfInterestExpense`. It **passes** "
+        "for JPMorgan, Morgan Stanley and Wells Fargo, and is **blocked** for "
+        "Bank of America and Citigroup, which file `us-gaap:Revenues` instead. "
+        "Same plausible label, and for a bank the two concepts are tens of "
+        "billions apart. Switch the bank above and watch the verdict flip.")
     st.caption(
         "**A verified source is not a verified answer.** All three checks can pass "
         "on an answer that cites a real record, quotes it correctly, and answers a "
