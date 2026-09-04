@@ -400,6 +400,67 @@ with time_tab:
 # who clicks into that finds the tool wrong, not the filer — so it is labelled
 # before they click, not after.
 
+# The question the model is asked, with every figure taken out of it.
+#
+# The version in stage4_grid.py opens "The figure to identify is $1.6 billion"
+# and then pastes in a sentence that also contains it. Nothing was being asked:
+# a model repeating $1.6 billion had read its own prompt, and scoring that as a
+# hit made a fabricated tag beside a correct number look like a success.
+#
+# So both leaks are closed. Every money and percent figure in the sentence is
+# masked, the one under test is marked, and the model has to supply the number
+# from somewhere — its own memory, or the tool. That is the whole comparison.
+#
+# stage4_grid.ASK is deliberately left alone. stage4_grid.json was measured with
+# it and the numbers on tab 1 are reported against that wording; silently
+# changing the prompt under a published result would make the two disagree with
+# no record of why.
+BLIND_ASK = """Below is one sentence from JPMorgan Chase's 10-K, Item 7, for
+fiscal year {fy}. Every figure in it has been removed.
+
+    {masked}
+
+The removed figure marked [[ ? ]] is the one to identify.
+
+Which exact XBRL tag did JPMorgan Chase file it under, and what value did they
+file for fiscal year {fy}?
+
+Answer in exactly this shape and nothing else:
+TAG: <the exact us-gaap tag, or UNKNOWN>
+VALUE: <the figure in dollars, or UNKNOWN>"""
+
+
+@st.cache_data(show_spinner=False)
+def redact(sentence: str, figure: str) -> str:
+    """Mask every figure in a sentence, marking the one under test.
+
+    extract.py's own patterns, imported rather than copied: the corpus was built
+    with them, and a second private notion of what counts as a figure would let
+    one leak through the mask that the extractor had already called a claim.
+    """
+    import extract as _ex
+
+    spans = sorted({(m.start(), m.end()) for m in _ex.MONEY.finditer(sentence)}
+                   | {(m.start(), m.end()) for m in _ex.PCT.finditer(sentence)})
+    # Drop any span wholly inside another, so "$1.6 billion" is masked once.
+    spans = [(a, b) for a, b in spans
+             if not any(c <= a and b <= d and (c, d) != (a, b) for c, d in spans)]
+    if not spans:
+        return sentence
+
+    target = sentence.find(figure)
+    if target < 0:
+        target = spans[0][0]
+
+    out, last = [], 0
+    for a, b in spans:
+        out.append(sentence[last:a])
+        out.append("[[ ? ]]" if a == target else "[…]")
+        last = b
+    out.append(sentence[last:])
+    return "".join(out)
+
+
 @st.cache_resource(show_spinner=False)
 def filer_facts() -> dict:
     """Every us-gaap concept JPMorgan has ever filed, parsed once per process.
@@ -411,7 +472,7 @@ def filer_facts() -> dict:
     return _pe.company_facts("JPM")["facts"]["us-gaap"]
 
 
-def check_tag(tag: str | None, fy: int) -> tuple[str, float | None]:
+def check_tag(tag: str | None, fy: int) -> tuple[str, float | None, str | None]:
     """Did this filer actually file that tag, and what value for that year?
 
     This is the citation check, and it is the part of the comparison that could
@@ -426,14 +487,19 @@ def check_tag(tag: str | None, fy: int) -> tuple[str, float | None]:
     it correct and assumes the source is too.
     """
     if not tag or tag.upper() == "UNKNOWN":
-        return "declined", None
+        return "declined", None, None
+    # "us-gaap_InvestmentBankingRevenue" is the right concept with the namespace
+    # glued on. Reporting that as a tag the filer never used would be the same
+    # unfairness as scoring a synonym wrong — a formatting difference dressed up
+    # as a fabrication.
+    tag = re.sub(r"^(us[-_]?gaap|jpm)[:_]", "", tag.strip(), flags=re.I)
     part = filer_facts().get(tag)
     if part is None:
-        return "not_filed", None
+        return "not_filed", None, tag
     import prepare_evidence as _pe
     usd = part.get("units", {}).get("USD") or []
     v = _pe.annual_value(usd, fy)
-    return ("filed", v["value"]) if v else ("filed_other_years", None)
+    return ("filed", v["value"], tag) if v else ("filed_other_years", None, tag)
 
 
 def model_value(text: str | None) -> float | None:
@@ -611,12 +677,15 @@ with match_tab:
             # rate-limited API is ten to thirty seconds and a real bill; running
             # them on page load would spend both on every visitor who scrolled.
             with st.expander("Could a model have found this without the pipeline?"):
+                masked = redact(r["sentence"], r["figure"])
                 st.caption(
-                    "The row above is what this pipeline says. These are what a "
-                    "general model says when asked the same question — nothing "
-                    "precomputed, run live against `data.sec.gov` when you press "
-                    "the button."
+                    "The row above is what this pipeline says. Below is the "
+                    "**exact question** put to a general model — with every "
+                    "figure stripped out, so the answer is not sitting in the "
+                    "prompt. It has to produce the number, from memory or from "
+                    "the tool."
                 )
+                st.code(BLIND_ASK.format(fy=r["fy"], masked=masked), language="text")
                 if st.button("Run both conditions", key=f"mc_{r['id']}"):
                     import asyncio as _asyncio
                     import os as _os
@@ -630,20 +699,17 @@ with match_tab:
                     from openai import OpenAI
 
                     from memory import MemoryStore
-                    from stage4_grid import ASK, no_tools, parse, with_agent
+                    from stage4_grid import no_tools, parse, with_agent
 
-                    base = ASK.format(sentence=r["sentence"][:600],
-                                      figure=r["figure"], company="JPMorgan Chase",
-                                      fy=r["fy"])
+                    base = BLIND_ASK.format(fy=r["fy"], masked=masked)
                     with st.spinner("Two model runs against data.sec.gov…"):
                         try:
                             client = OpenAI(api_key=_os.getenv("OPENAI_API_KEY"))
                             got = [("Model alone, no tools",
                                     parse(no_tools(client, base)),
-                                    "It has no access to the filing, and the "
-                                    "question already contains the figure — so "
-                                    "only the tag it names carries information "
-                                    "here.")]
+                                    "No tool, no filing, and the figure is "
+                                    "not in the question. Whatever it says is "
+                                    "recall or invention.")]
                             _time.sleep(2)
                             store = MemoryStore(dsn="", sqlite_path=Path(
                                 _tempfile.gettempdir()) / "mc.db")
@@ -677,22 +743,29 @@ with match_tab:
                     # condition, because ASK hands the figure to the model in
                     # the question. Repeating it is not recall, and marking it
                     # a hit made a fabricated citation look like a success.
-                    no_tools_row = label.startswith("Model alone")
-                    state, actual = check_tag(tag, r["fy"])
-                    same_tag = bool(tag) and tag.lower() == c["tag"].lower()
+                    state, actual, clean = check_tag(tag, r["fy"])
+                    said = model_value(value)
+                    value_ok = (said is not None and r["filed"]
+                                and abs(said - r["filed"]) / abs(r["filed"]) <= 0.015)
+                    same_tag = bool(clean) and clean.lower() == c["tag"].lower()
                     tag_holds_it = (actual is not None and r["filed"]
                                     and abs(actual - r["filed"]) / abs(r["filed"]) <= 0.015)
 
+                    # Both axes matter now that neither is handed over. The
+                    # source is judged first, because a fabricated citation is
+                    # the worse failure even when the number beside it is right
+                    # — and in practice that is exactly the pair that shows up.
                     if state == "declined":
                         mark, word = "❔", "declined"
                     elif state == "not_filed":
                         mark, word = "⛔", "cited a tag JPMorgan has never filed"
                     elif state == "filed_other_years":
-                        mark, word = "⚠️", f"real tag, but nothing filed for FY{r['fy']}"
-                    elif same_tag and tag_holds_it:
-                        mark, word = "✅", "the concept this page pinned"
+                        mark, word = "⚠️", f"real tag, nothing filed for FY{r['fy']}"
+                    elif tag_holds_it and value_ok:
+                        mark, word = (("✅", "right concept, right number") if same_tag
+                                      else ("🟰", "a different tag holding the same figure"))
                     elif tag_holds_it:
-                        mark, word = "🟰", "a different tag holding the same figure"
+                        mark, word = "❌", "right concept, wrong number"
                     else:
                         mark, word = "❌", "a real concept, holding a different figure"
 
@@ -709,23 +782,24 @@ with match_tab:
                     g[1].caption("value it answered")
                     g[1].code((value or "— none —")[:60], language="text")
                     g[1].caption(
-                        "**not scored** — the question hands the model this "
-                        "figure, so repeating it shows nothing"
-                        if no_tools_row else
-                        f"the filing says ${r['filed']/1e9:,.2f}B")
+                        f"✔ matches the filing (${r['filed']/1e9:,.2f}B)" if value_ok
+                        else "— nothing offered —" if said is None
+                        else f"✘ the filing says ${r['filed']/1e9:,.2f}B, "
+                             f"off by {abs(said - r['filed']) / abs(r['filed']):.0%}")
                     st.caption(note)
 
                 if cache.get(r["id"]):
                     st.caption(
-                        "**Every tag above was checked against JPMorgan's own "
-                        "filings.** ✅ and 🟰 both found the figure — JPMorgan "
-                        "files some numbers under more than one concept, and "
-                        "naming either is right. ❌ named a concept the firm "
-                        "does file, holding a different number. **⛔ is the "
-                        "worst of them**: a concept JPMorgan has never filed, "
-                        "usually beside a figure that is correct — so anyone "
-                        "checking the number finds it right and assumes the "
-                        "source is too."
+                        "**Nothing here was given to the model.** The figure was "
+                        "stripped from the question, and every tag it named was "
+                        "checked against JPMorgan's own filings afterwards. "
+                        "✅ and 🟰 both found it — JPMorgan files some numbers "
+                        "under more than one concept, so naming either is right. "
+                        "❌ named a concept the firm does file, holding a "
+                        "different number. **⛔ is the worst**: a concept "
+                        "JPMorgan has never filed — and it can appear beside a "
+                        "figure that is correct, so anyone checking the number "
+                        "finds it right and assumes the source is too."
                     )
 
         if len(listing) > 60:
