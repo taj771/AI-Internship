@@ -60,9 +60,13 @@ st.caption(
     "**Research tooling, not investment advice.** It says *look at this*, never *do this*."
 )
 
-fail_tab, built_tab, filings_tab, time_tab, study_tab = st.tabs(
+# Order is the argument: the problem, the method, the method running on one
+# filing, then how much of any filing can be confirmed at all, and finally how
+# the confirmed figures move between filings. Coverage before temporal — the
+# scale of the gap has to land before its behaviour over time means anything.
+fail_tab, built_tab, filings_tab, study_tab, time_tab = st.tabs(
     ["Where models fail", "What we built", "Filing report",
-     "Verification over time", "The study"])
+     "How much can be checked", "How figures change"])
 
 
 # --- where models fail ------------------------------------------------------
