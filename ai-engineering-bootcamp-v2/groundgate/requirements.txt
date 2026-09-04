@@ -1,12 +1,15 @@
-# The gate itself needs nothing. These are for the page that demonstrates it.
-streamlit>=1.35.0
-requests>=2.32.0
-python-dotenv>=1.0.0
+# groundgate.py itself imports nothing outside the standard library. That is
+# deliberate — a verification component that drags a dependency tree behind it is
+# harder to adopt than the problem it solves.
+#
+# These are for the two scripts beside it.
 
-# Only the "Watch a model try" tab imports this, and only on a button press.
-# Pinned anyway rather than left to arrive through something else: a dependency
-# of a dependency holding up a feature is a failure that surfaces on a deployed
-# page at the moment a visitor tries it.
+# sources.py, when the capstone's fact cache is absent and it fetches from
+# data.sec.gov itself.
+requests>=2.32.0
+
+# blind_probe.py only: it calls a model to produce the run demo_sec.py reads.
 openai>=1.40
+python-dotenv>=1.0.0
 
 pytest>=8.0.0

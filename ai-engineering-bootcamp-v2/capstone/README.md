@@ -1,5 +1,34 @@
 # Calibrated Claim Auditor — capstone
 
+> ## Where this ended up
+>
+> **The submitted product is [groundgate](../groundgate/), not this.** Everything
+> below describes the study, which is now the evidence behind it rather than the
+> thing being shipped.
+>
+> The pipeline here was built, measured end to end, and yields a usable
+> comparison on **0.6%** of the 34,870 numeric claims it processes — 207 of them.
+> Half that loss is not fixable: nobody files a ratio or a non-GAAP measure. The
+> rest is one bottleneck, joining a sentence to one of ~900 filed concepts, which
+> five methods failed to beat (best: 6%).
+>
+> One component of it was general enough to leave the subject — the check that a
+> cited source exists in the system it claims to come from — and that became the
+> product. This directory keeps the study intact because it is where the failures
+> were found and what the numbers rest on.
+>
+> | | |
+> |---|---|
+> | the tool | [`../groundgate/`](../groundgate/) · `groundgate.py`, 12 tests |
+> | the app | `app.py` — three tabs, deployed at capstone-claim-auditor.onrender.com |
+> | the written record | groundgate.onrender.com |
+> | the study | this directory: `coverage.py`, `consistency.py`, `browse.py`, `COVERAGE_STUDY.md` |
+>
+> The app has three tabs, not the seven described further down: the three
+> failures, what was built, and the check itself. The four study tabs were
+> removed on 2026-09-04 — the code and data are untouched, they are just no
+> longer the first thing a stranger reads.
+
 A bank writes a sentence about itself. Check whether its own filed numbers back
 it up — and say how much to trust the answer.
 
