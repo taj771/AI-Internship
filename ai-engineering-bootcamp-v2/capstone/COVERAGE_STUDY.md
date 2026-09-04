@@ -169,6 +169,71 @@ behaving correctly, and an experiment that scored it as a miss would be
 measuring the wrong thing.
 
 
+## Five banks, and the headline number does not survive
+
+The study was built on JPMorgan and reported 45% of FY2025 claims as checkable.
+Four more filers were added — Bank of America, Morgan Stanley, Wells Fargo and
+Citigroup — for 34,870 numeric claims across 73 filings. **45% is a JPMorgan
+number, not a finding.**
+
+```
+             FY2011                       FY2025
+       chk   seg   chg  none        chk   seg   chg  none    claims 11→25
+JPM    53%    3%   25%   19%        45%   19%   16%   20%      896 →  278
+BAC    33%    5%   19%   43%        34%   11%   20%   36%     1130 →  402
+MS     38%    3%   26%   34%        25%   25%   10%   39%      396 →  185
+WFC    22%    3%   24%   51%        26%    3%   14%   57%      510 →  235
+C       —     —     —     —         15%    4%   26%   55%        — →  454
+```
+
+All years pooled, the checkable share runs from **14% (Citigroup) to 47%
+(JPMorgan)** — a spread wider than the fifteen-year movement inside any single
+filer.
+
+**What replicates.** Numeric prose volume falls in every filer with a 2011
+baseline: JPM −69%, BAC −64%, WFC −54%, MS −53%. The segment band grows in three
+of four — JPM 3→19%, MS 3→25%, BAC 5→11% — and is flat for Wells Fargo.
+
+**What does not.** The level of every band. Whatever the checkable share is
+measuring, it is at least as much a property of the filer as of the year.
+
+### Why the cross-filer levels are the weakest number here
+
+Retrieval was built and tuned against JPMorgan and Goldman. A claim counts as
+checkable only when `prepare_evidence.candidates` proposes a tag for it, so a
+filer whose wording our matcher handles less well produces a lower checkable
+share **and a lower one is indistinguishable from a filer that genuinely tags
+less of its narrative.** Citigroup's 14% is not evidence that Citigroup is less
+checkable than JPMorgan; it is consistent with that and equally consistent with
+our matcher being worse on Citigroup's prose.
+
+The safer read is the direction over time *within* a filer, where the matcher is
+held constant. The cross-filer column is a range, not a ranking.
+
+### Filer-specific gaps, stated
+
+- **Citigroup FY2023–2025 segment claims are undercounted.** Citi renamed its
+  segments to Services, Markets, Banking and Wealth — four ordinary English
+  words that appear across a bank's Item 7 in a firmwide sense. Matching them
+  would move hundreds of firmwide sentences into the band the main finding rests
+  on. Of 74 segment matches in Citi's FY2025 filing, 56 are `USPB`. The
+  undercount is the deliberate error: a band that is too small reads as a low
+  number, one inflated by false positives reads as a finding.
+- **Three filings are missing.** Citigroup FY2011 and FY2012 — neither has an
+  `Item 7A` or `Item 8` heading anywhere in its flattened text, so the extractor
+  finds no end marker — and Wells Fargo FY2013.
+- **Wells Fargo's MD&A is not in its 10-K.** Item 7 incorporates it by
+  reference; the text here comes from the Exhibit 13 annual report, a
+  structurally different document whose section is called "Financial Review".
+  Its low segment band (3% throughout) is real at the name level — its segment
+  names do appear 62 times in FY2025 — but the document is not like the others.
+- **Segment names were read out of the filings, not recalled.**
+  `mine_segments.py` parses the enumeration sentence each 10-K carries. Run
+  against JPMorgan it reproduces the hand-written list, which is the check that
+  it works. BAC ran six segments in FY2011, five from FY2012, four by FY2024;
+  Wells Fargo restructured in FY2020; Morgan Stanley renamed in FY2013.
+
+
 ## What this study cannot say
 
 - **Nothing about whether a company is misleading anyone.** MD&A is not required
