@@ -4,10 +4,15 @@ An assistant is asked how much the company spent on AWS last quarter. It answers
 **"$1.2 million, source: invoice INV-88421"**. The figure is right. There is no
 invoice INV-88421.
 
-That pairing is worse than a wrong number, and for a specific reason: **a wrong
-number is caught by the next person who looks; a wrong source is caught by
-nobody.** Whoever checks the figure finds it correct and carries the citation
-into a report, where it acquires the authority of something that was verified.
+**A wrong number is caught by the next person who looks. A wrong source is
+caught by nobody** — there is no reflex to check that a cited identifier exists,
+so it travels into reports and acquires the authority of something verified.
+
+That is the argument for checking citations, and it does not depend on how often
+the number beside one happens to be right. In the run measured below the model's
+figures were mostly wrong too. See **Honest limits** — an earlier draft of this
+file claimed the dangerous pairing was common on the strength of an eight-claim
+sample, and forty claims did not support it.
 
 ```python
 from groundgate import Gate, Run, ToolCall
@@ -53,8 +58,11 @@ stripped out of the question** so it had to be recalled rather than repeated:
 gpt-4o · 40 claims · JPMorgan · no tools
 
   declined to answer                 29
-  named a concept the filer files     9
-  FABRICATED a concept                2     18% of the answers it committed to
+  committed to an answer             11
+    cited a real concept              9
+    FABRICATED a concept              2     18% of the answers it committed to
+    gave the figure actually asked
+      for                             1      9%
 ```
 
 The two, verbatim, each beside a value it also supplied:
@@ -84,6 +92,16 @@ number means nothing.
 
 **18% is one run of forty at temperature 0.** Treat the shape as the finding and
 the figure as indicative. `blind_probe.py --seed N` will draw a different sample.
+
+**The dangerous pairing was not observed at this sample size.** An eight-claim
+pilot produced five fabricated concepts alongside four correct figures, and that
+became the story this file was first written around. At forty claims it is
+**0 of 11** — the model that fabricates a source usually gets the figure wrong
+as well, and declines most of the time rather than committing at all. The
+existence check still catches what it catches, and the reason a fabricated
+citation is dangerous still holds. But the memorable version of the claim did not
+survive a bigger sample, and quoting it would be exactly the error this project
+is about.
 
 **"Did it look?" defaults to flag, not block.** An answer that consulted nothing
 may still be right, and blocking it would stop correct answers. It must not be

@@ -14,17 +14,22 @@ An assistant is asked how much the company spent on AWS last quarter. It answers
 "$1.2 million, source: invoice INV-88421". The figure is right. There is no
 invoice INV-88421.
 
-That pairing — a correct number beside an invented citation — is worse than a
-wrong number, and it is worse for a specific reason: **a wrong number is caught
-by the next person who looks, and a wrong source is caught by nobody.** Whoever
-checks the figure finds it correct and carries the citation forward into a
-report, where it acquires the authority of something that was verified.
+A wrong number is caught by the next person who looks. **A wrong source is
+caught by nobody** — nobody has the reflex to check that a cited identifier
+exists — so it travels into reports and acquires the authority of something
+verified.
 
-It is not rare. Asked which concept a bank filed a figure under, with the figure
-stripped out of the question so it had to be recalled rather than repeated, a
-general model named a concept the filer had never once used **five times in
-eight** — and got the number itself right four times in eight. The measurement
-is in ../capstone/COVERAGE_STUDY.md and reproduced by demo_sec.py here.
+Asked which concept a bank filed a figure under, with the figure stripped out of
+the question so it had to be recalled rather than repeated, a general model
+cited a concept the filer had never used in **2 of the 11 answers it committed
+to**, out of 40 asked. demo_sec.py reproduces that against the filer's own data.
+
+Note what an earlier draft of this file claimed and the measurement did not
+support: that the fabricated citation usually sits beside a *correct* figure. An
+eight-claim pilot showed exactly that and forty claims did not — the model that
+invents a source generally gets the number wrong too. The argument for checking
+citations does not need the pairing to be common, and the README records the
+correction.
 
 
 WHAT IT CHECKS, AND WHAT IT CANNOT
