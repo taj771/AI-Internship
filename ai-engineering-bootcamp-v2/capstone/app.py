@@ -326,56 +326,6 @@ with fail_tab:
         "Measured over 40 blinded questions: 29 declined, 11 committed to an "
         "answer, and 2 of those 11 cited a concept the filer had never used.")
 
-    # --- and what a tool does and does not fix ---------------------------
-    st.divider()
-    st.markdown("#### Does giving it a lookup tool fix this?")
-    st.caption(
-        "40 claims where the correct concept is known independently. One "
-        "question each: which concept did the company file this under?")
-
-    grid = report_mod.load_json("stage4_grid.json", {})
-    rs = grid.get("results", {})
-
-    def tally(key):
-        g = rs.get(key, [])
-        ok = sum(1 for x in g if x["correct"])
-        dec = sum(1 for x in g if not x["got"] or x["got"] == "UNKNOWN")
-        return g, ok, dec, len(g) - ok - dec
-
-    if rs:
-        g1, ok1, dec1, wrong1 = tally("no_tools")
-        g2, ok2, dec2, wrong2 = tally("tools")
-        left, right = st.columns(2)
-        with left:
-            st.markdown("**A model on its own**")
-            st.metric("correct", f"{ok1}/{len(g1)}", f"{ok1/len(g1):.0%}", delta_color="off")
-            st.caption(f"{dec1} declined · {wrong1} confidently wrong")
-            st.info("**It almost always refuses.** That is the correct answer, and "
-                    "it is also useless — you still have to go and look.")
-        with right:
-            st.markdown("**The same model, with a live SEC lookup tool**")
-            st.metric("correct", f"{ok2}/{len(g2)}", f"{ok2/len(g2):.0%}", delta_color="off")
-            st.caption(f"{dec2} declined · {wrong2} confidently wrong")
-            st.warning(f"**Much better — and still wrong or silent on "
-                       f"{len(g2)-ok2} of {len(g2)}.** Giving it the data is not "
-                       "the same as it finding the right number.")
-
-        st.markdown("##### The failures that matter are the confident ones")
-        wrong = [x for x in g2 if not x["correct"] and x["got"] and x["got"] != "UNKNOWN"]
-        if wrong:
-            st.dataframe(
-                [{"the concept the sentence meant": w["expected"],
-                  "what the model answered": w["got"]} for w in wrong],
-                hide_index=True, use_container_width=True)
-        st.markdown(
-            "Look at the last row. `StockholdersEquity` and "
-            "`StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest` "
-            "are one qualifying phrase apart and hold **different numbers**. "
-            "Accounting distinctions live in exactly those words, and a model "
-            "reaching for the shorter, more familiar name gets a real figure for "
-            "the wrong thing — failure 1 again, dressed as failure 3.")
-
-
 # --- live check -------------------------------------------------------------
 
 with fail_tab:
@@ -1336,9 +1286,10 @@ with built_tab:
     st.divider()
     st.markdown("### What the structure is worth")
     st.caption(
-        "The same 40 claims from **Where models fail** — same model, same SEC "
-        "tool, same budget. The only thing added is step 3: the shortlist of "
-        "candidate concepts retrieved for the sentence."
+        "40 claims where the correct concept is known independently, asked of the "
+        "same model with the same SEC tool and the same budget. The only thing "
+        "that changes between rows is step 3: whether the model is handed the "
+        "shortlist of candidate concepts retrieved for the sentence."
     )
     grid = report_mod.load_json("stage4_grid.json", {})
     rs = grid.get("results", {})
