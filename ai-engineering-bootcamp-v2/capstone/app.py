@@ -101,11 +101,85 @@ st.markdown(
 # failure worth showing is a confident wrong answer, and there are four of them.
 
 with fail_tab:
-    st.markdown("### Ask a model which figure a company filed. Watch what happens.")
+    st.markdown("### Three ways a model gets a cited figure wrong")
+    st.markdown(
+        "Not one failure but three, and they are not equally fixable. Each "
+        "example below is a real answer from a real run, and each figure is "
+        "checkable against data.sec.gov by anyone who doubts it.")
+
+    # --- 1 ---------------------------------------------------------------
+    st.divider()
+    st.markdown("#### 1 · The number is wrong")
+    a, b = st.columns([1, 1])
+    with a:
+        st.markdown("**What Item 7 said** — JPMorgan, FY2011")
+        st.info("Noninterest expense was &#36;10.4 billion, an increase of 1%, "
+                "driven by investments in advisors and technology…")
+        st.caption("This sentence sits under a segment heading. &#36;10.4 billion "
+                   "is one division.")
+    with b:
+        st.markdown("**What a general model answered**")
+        st.code("TAG:   us-gaap:NoninterestExpense\nVALUE: 59,515,000,000", language="text")
+        st.error("The concept is real and JPMorgan does file it. The figure is "
+                 "the **firmwide** total — &#36;59.5 billion against a division's "
+                 "&#36;10.4 billion. Right concept, wrong scope, wrong number.")
+    st.markdown(
+        "**Why it is hard to catch.** Nothing in the sentence names a division; "
+        "the scope is carried by a heading several paragraphs above it. Catching "
+        "this needs the true value, which needs the right concept *and* the right "
+        "scope — and the SEC's public API will not return segment figures at all.")
+
+    # --- 2 ---------------------------------------------------------------
+    st.divider()
+    st.markdown("#### 2 · Two sources, two numbers, both filed")
+    c, d = st.columns([1, 1])
+    with c:
+        st.markdown("**JPMorgan's cash from operating activities, FY2017**")
+        st.code("as filed in the FY2017 report   -$10.83B\n"
+                "as filed in a later report       -$2.50B", language="text")
+        st.caption("FY2019 moved too: &#36;4.09B, then &#36;6.05B. Four consecutive "
+                   "years were restated — 2016 through 2019.")
+    with d:
+        st.markdown("**Which one is correct**")
+        st.warning("**Both.** Every annual report republishes prior years, and a "
+                   "reclassification moves them. A figure copied down in 2017 was "
+                   "right that day and wrong within a year, with nothing announcing "
+                   "it.")
+    st.markdown(
+        "**This is not a model failure at all.** No amount of prompting fixes it. "
+        "It is why this project never stores a figure — only where to look, "
+        "fetched live on every check. A cached number is a stale-answer generator, "
+        "which is precisely the failure a claim auditor exists to catch.")
+
+    # --- 3 ---------------------------------------------------------------
+    st.divider()
+    st.markdown("#### 3 · The source does not exist")
+    e, f = st.columns([1, 1])
+    with e:
+        st.markdown("**Asked about** &#36;28.3 billion — JPMorgan, FY2011")
+        st.code("TAG:   us-gaap:AllowanceForLoanAndLeaseLosses\n"
+                "VALUE: 23,023,000,000", language="text")
+    with f:
+        st.markdown("**What is true**")
+        st.error("That concept exists in the us-gaap taxonomy, is spelled "
+                 "correctly, and **JPMorgan has never filed it** — not once, in "
+                 "any year, in any of its 918 concepts.")
+    st.success(
+        "**This one is solvable, and cleanly.** Whether a filer has ever used a "
+        "concept is a lookup in data they published — no model, no human, no "
+        "opinion. It is the only one of the three with a deterministic answer, "
+        "which is why it became a tool. **Try it in the last tab, "
+        "*Is the source real?***")
     st.caption(
-        "40 claims where the correct XBRL concept is known independently. "
-        "One question each: which tag did the company file this under?"
-    )
+        "Measured over 40 blinded questions: 29 declined, 11 committed to an "
+        "answer, and 2 of those 11 cited a concept the filer had never used.")
+
+    # --- and what a tool does and does not fix ---------------------------
+    st.divider()
+    st.markdown("#### Does giving it a lookup tool fix this?")
+    st.caption(
+        "40 claims where the correct concept is known independently. One "
+        "question each: which concept did the company file this under?")
 
     grid = report_mod.load_json("stage4_grid.json", {})
     rs = grid.get("results", {})
@@ -119,29 +193,22 @@ with fail_tab:
     if rs:
         g1, ok1, dec1, wrong1 = tally("no_tools")
         g2, ok2, dec2, wrong2 = tally("tools")
-
         left, right = st.columns(2)
         with left:
             st.markdown("**A model on its own**")
             st.metric("correct", f"{ok1}/{len(g1)}", f"{ok1/len(g1):.0%}", delta_color="off")
             st.caption(f"{dec1} declined · {wrong1} confidently wrong")
-            st.info(
-                "**It almost always refuses.** It has no way to know what a "
-                "company filed, and it says so. That is the correct answer, and "
-                "it is also useless — you still have to go and look."
-            )
+            st.info("**It almost always refuses.** That is the correct answer, and "
+                    "it is also useless — you still have to go and look.")
         with right:
             st.markdown("**The same model, with a live SEC lookup tool**")
             st.metric("correct", f"{ok2}/{len(g2)}", f"{ok2/len(g2):.0%}", delta_color="off")
             st.caption(f"{dec2} declined · {wrong2} confidently wrong")
-            st.warning(
-                f"**Much better — and still wrong or silent on {len(g2)-ok2} of "
-                f"{len(g2)}.** Giving it the data is not the same as it finding "
-                "the right number."
-            )
+            st.warning(f"**Much better — and still wrong or silent on "
+                       f"{len(g2)-ok2} of {len(g2)}.** Giving it the data is not "
+                       "the same as it finding the right number.")
 
-        st.divider()
-        st.markdown("#### The failures that matter are the confident ones")
+        st.markdown("##### The failures that matter are the confident ones")
         wrong = [x for x in g2 if not x["correct"] and x["got"] and x["got"] != "UNKNOWN"]
         if wrong:
             st.dataframe(
@@ -154,29 +221,8 @@ with fail_tab:
             "are one qualifying phrase apart and hold **different numbers**. "
             "Accounting distinctions live in exactly those words, and a model "
             "reaching for the shorter, more familiar name gets a real figure for "
-            "the wrong thing."
-        )
+            "the wrong thing — failure 1 again, dressed as failure 3.")
 
-    st.divider()
-    st.markdown("#### And sometimes the source itself is invented")
-    st.markdown(
-        "Asked for JPMorgan's CCB noninterest revenue **and the tag it was filed "
-        "under**, a general model returned:"
-    )
-    st.code("VALUE: $17.795 billion      ← correct\n"
-            "TAG:   JPM_CCBNoninterestRevenue   ← does not exist", language="text")
-    st.error(
-        "JPMorgan files **933 tags** across six namespaces. None contains \"CCB\", "
-        "and there is no `JPM` namespace. **The number was right and the citation "
-        "was fabricated** — which is worse, not better: anyone checking the figure "
-        "finds it correct and assumes the source is too. A wrong number gets "
-        "caught downstream. A wrong source gets copied into a workpaper."
-    )
-    st.caption(
-        "Measured over 25 claims, a model with no tools invented a tag once and "
-        "declined 24 times. Fabrication is rare and not the main failure — being "
-        "confidently wrong about *which* concept is."
-    )
 
 # --- live check -------------------------------------------------------------
 
