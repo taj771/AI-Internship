@@ -62,6 +62,22 @@ Extract every numeric claim from each year's Item 7 and bin it:
 
 No agent, no model, no labels. Roughly 8,000 claims.
 
+The five bins carry a plain-language name in the app, because the first reader
+to see the figure asked what the legend meant. A legend that needs its author
+standing next to it is not a legend. The mapping, one to one:
+
+| `structural` / `has_tag` | app label | FY2025 |
+|---|---|---|
+| `reachable`, tag found | Checkable | 125 · 45% |
+| `derivable` | A change, not an amount | 44 · 16% |
+| `tagged_unreachable` | One part of the bank | 53 · 19% |
+| `reachable`, no tag found | Nothing filed by that name | 20 · 7% |
+| `rarely_tagged` + `never_tagged` | Never filed by anyone | 36 · 13% |
+
+They are ordered by how recoverable each one is — arithmetic away, a harder
+parser away, possibly our own retrieval's fault, impossible — and the chart's
+hues follow that order rather than a stock categorical ramp.
+
 **This is a fact about the disclosure regime, not about any company.** MD&A is
 not required to be tagged, so a low checkable share is normal and legal, not a
 red flag. The finding is its size, and how it moves.

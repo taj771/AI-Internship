@@ -396,15 +396,69 @@ with study_tab:
     if chart.exists():
         st.markdown(svg(chart.read_text(encoding="utf-8")), unsafe_allow_html=True)
 
+    # The legend, spelled out.
+    #
+    # The five bands were labelled "Checkable / No tag filed / Comparison /
+    # Segment / Ratio / non-GAAP" and the first reader to see the chart asked
+    # what those meant. They are five answers to one question — can this number
+    # be looked up in what the bank filed, and if not, why not — and four of
+    # them are different reasons for no, with different fixes. A legend has room
+    # for a phrase; this is where the sentence goes.
+    #
+    # Rendered from coverage_bands.json rather than typed here, so the counts
+    # cannot drift from the figure above them. Routed through svg() for the same
+    # reason every drawing is: the examples quote dollar figures, and st.markdown
+    # reads $...$ as LaTeX.
+    bands = report_mod.load_json("coverage_bands.json", [])
+    if bands:
+        st.markdown("#### What the five colours mean")
+        st.caption(
+            "One question, five answers: **can this number be looked up in "
+            "what the bank filed — and if not, why not?** Only the first is a "
+            "yes. The other four are different reasons for no, and they do not "
+            "have the same fix."
+        )
+        cards = "".join(
+            f'<div class="lk"><div class="sw" style="background:{b["light"]}">'
+            f'<span style="background:{b["dark"]}"></span></div>'
+            f'<div class="bd"><h4>{b["short"]}'
+            f'<span class="n">{b["count"]} claims · {b["share"]:.0%}</span></h4>'
+            f'<p>{b["plain"]}</p>'
+            f'<blockquote>“…{b["example"]}”</blockquote></div></div>'
+            for b in bands
+        )
+        st.markdown(svg(f"""<style>
+.lkey{{--ln:#e3e3e0;--ink:#1a1a19;--dim:#57606a;--q:#f4f4f2;
+       display:flex;flex-direction:column;gap:9px;margin:.2rem 0 .6rem}}
+@media (prefers-color-scheme:dark){{.lkey{{--ln:#2f2f2d;--ink:#e8e8e4;
+       --dim:#a8a8a0;--q:#242423}}}}
+.lkey .lk{{display:grid;grid-template-columns:7px 1fr;
+       border:1px solid var(--ln);border-radius:7px;overflow:hidden}}
+.lkey .sw span{{display:none}}
+@media (prefers-color-scheme:dark){{.lkey .sw{{background:none!important}}
+       .lkey .sw span{{display:block;height:100%}}}}
+.lkey .bd{{padding:11px 15px 12px}}
+.lkey h4{{margin:0 0 4px;font:600 14px ui-sans-serif,system-ui,sans-serif;
+       color:var(--ink);display:flex;justify-content:space-between;gap:14px}}
+.lkey .n{{font-weight:400;font-size:12.5px;color:var(--dim);white-space:nowrap;
+       font-variant-numeric:tabular-nums}}
+.lkey p{{margin:0;font-size:13.5px;line-height:1.55;color:var(--ink)}}
+.lkey blockquote{{margin:8px 0 0;padding:7px 11px;background:var(--q);
+       border-radius:5px;font-size:12.5px;line-height:1.5;color:var(--dim)}}
+</style><div class="lkey">{cards}</div>"""), unsafe_allow_html=True)
+
+    st.divider()
     c = st.columns(3)
     c[0].metric("Numeric density, FY2011", "16.9", help="claims per 10,000 characters")
     c[1].metric("Numeric density, FY2025", "7.0", "−58%", delta_color="off")
-    c[2].metric("Segment-level claims", "3% → 20%", help="FY2011 to FY2025")
+    c[2].metric("Claims about one part of the bank", "3% → 19%",
+                help="29 of 896 claims in FY2011; 53 of 278 in FY2025")
     st.markdown(
         "**JPMorgan puts less than half as many numbers in its narrative as it did "
         "in 2011**, normalised for document length. Tag availability never moved "
         "(79–88% throughout). What changed is that the prose moved down to segment "
-        "level, where the SEC's JSON API strips the dimensions and cannot follow."
+        "level — the orange band, 3% of claims in 2011 and 19% today — where "
+        "the SEC's JSON API strips the dimensions and cannot follow."
     )
 
     st.divider()
