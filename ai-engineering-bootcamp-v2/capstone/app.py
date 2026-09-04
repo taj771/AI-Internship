@@ -60,8 +60,9 @@ st.caption(
     "**Research tooling, not investment advice.** It says *look at this*, never *do this*."
 )
 
-fail_tab, built_tab, filings_tab, live_tab, study_tab = st.tabs(
-    ["Where models fail", "What we built", "Filing report", "Check a claim", "The study"])
+fail_tab, built_tab, filings_tab, time_tab, study_tab = st.tabs(
+    ["Where models fail", "What we built", "Filing report",
+     "Verification over time", "The study"])
 
 
 # --- where models fail ------------------------------------------------------
@@ -151,6 +152,70 @@ with fail_tab:
         "confidently wrong about *which* concept is."
     )
 
+# --- live check -------------------------------------------------------------
+
+with fail_tab:
+    st.caption(
+        "One claim, checked live against data.sec.gov. Slower than the report "
+        "above because the agent runs now — typically ten to twenty seconds."
+    )
+    claim = st.text_area(
+        "Claim",
+        value="Goldman Sachs reported net revenues of $58.28 billion for fiscal year 2025.",
+        height=90,
+    )
+    if st.button("Audit this claim", type="primary"):
+        from agent import audit_checked
+        from memory import MemoryStore
+
+        with st.spinner("Looking it up at data.sec.gov…"):
+            # The system temp directory, not a folder beside the code.
+            #
+            # This first pointed at .cache/, which exists locally and is
+            # gitignored — so on Render the directory was simply absent and
+            # sqlite3 cannot create a file inside a directory that does not
+            # exist. It failed only on this tab, only in deployment, and only
+            # when a visitor pressed the button, which is the worst of the
+            # possible times to find out.
+            #
+            # Nothing here needs to survive: memory is off, the store is handed
+            # in empty so that no learned fact can influence a live answer, and
+            # a free instance loses its filesystem on every sleep anyway.
+            store = MemoryStore(
+                dsn="", sqlite_path=Path(tempfile.gettempdir()) / "capstone-live.db"
+            )
+            answer, trace, evidence = asyncio.run(
+                audit_checked(claim, store=store, learn=False)
+            )
+
+        if not evidence.get("admissible"):
+            if evidence.get("reason") == "gave_up_early":
+                st.error(
+                    "**It gave up early.** The agent answered NOT_CHECKABLE after "
+                    f"{evidence['tool_calls']} of 3 lookups, while the tool was "
+                    "still offering tags it never tried: "
+                    + ", ".join(f"`{t}`" for t in evidence.get("untried_tags", [])[:3])
+                    + ". Its verdict is withheld, because \"nothing to check\" "
+                    "has not been established by stopping early — and a false "
+                    "NOT_CHECKABLE is the worst error here: a wrong verdict gets "
+                    "argued with, while \"there is nothing to check\" ends the "
+                    "enquiry and a real contradiction goes unreported."
+                )
+            else:
+                st.error(
+                    "**No evidence.** The agent answered without consulting any "
+                    "filed data, on every attempt. Its verdict is not shown, "
+                    "because an answer with nothing behind it is not a finding."
+                )
+            with st.expander("What it said anyway"):
+                st.code(answer or "(nothing)")
+        else:
+            st.code(answer)
+            st.caption(f"{evidence['tool_calls']} lookup(s), {evidence['attempts']} attempt(s)")
+        with st.expander("Trace — every step the agent took"):
+            for step in trace:
+                st.text(f"{step.get('kind', '?'):8s} {str(step)[:300]}")
+
 # --- filing report ----------------------------------------------------------
 
 with filings_tab:
@@ -236,69 +301,78 @@ with filings_tab:
                         f"{r['raw_sentence'][:150].replace('$', chr(92)+'$')}…")
 
 
-# --- live check -------------------------------------------------------------
+# --- verification over time ---------------------------------------------------
+#
+# Stage 3. The filed side is complete, so it is drawn as a line; MD&A appears
+# only where a claim verified, which is 61 times in 3,915. Those points are not
+# joined, because four dots spread over fifteen years are not a series and
+# drawing them as one would be inventing data.
 
-with live_tab:
+with time_tab:
+    import json as _json
+    st.markdown("### The same concept, filing after filing")
     st.caption(
-        "One claim, checked live against data.sec.gov. Slower than the report "
-        "above because the agent runs now — typically ten to twenty seconds."
+        "What a company filed each year is complete and continuous. What it "
+        "wrote about in prose, and that we could verify, is sparse — so the "
+        "filed value is a line and verified claims are individual points."
     )
-    claim = st.text_area(
-        "Claim",
-        value="Goldman Sachs reported net revenues of $58.28 billion for fiscal year 2025.",
-        height=90,
+    panel = report_mod.HERE / "stage3_panel.svg"
+    if panel.exists():
+        st.markdown(svg(panel.read_text(encoding="utf-8")), unsafe_allow_html=True)
+
+    st.divider()
+    left, right = st.columns(2)
+    with left:
+        st.markdown("**Figures move after they are published**")
+        st.markdown(
+            "JPMorgan's filed cash from operating activities changed between "
+            "filings in **four consecutive years** — 2016, 2017, 2018 and 2019. "
+            "Every annual report republishes the prior years, and the values can "
+            "move when something is reclassified.\n\n"
+            "A figure copied down in 2016 was correct that day and wrong within "
+            "a year, with nothing to announce it."
+        )
+    with right:
+        st.markdown("**And concepts stop being filed**")
+        st.markdown(
+            "`TierOneRiskBasedCapital` ends in **2013**, at the Basel III "
+            "transition that replaced the capital definitions. "
+            "`StockRepurchaseProgramAuthorizedAmount1` ends in **2022**.\n\n"
+            "Both still answer a request with their historical data, so **a dead "
+            "concept looks exactly like a live one** until you check which years "
+            "it covers."
+        )
+    st.info(
+        "Together these correct the rule the memory layer was built on. *Store "
+        "where to look, not what was found* was right about figures and "
+        "incomplete about routes — **routes expire too**, and unlike a stale "
+        "figure a dead one fails silently."
     )
-    if st.button("Audit this claim", type="primary"):
-        from agent import audit_checked
-        from memory import MemoryStore
 
-        with st.spinner("Looking it up at data.sec.gov…"):
-            # The system temp directory, not a folder beside the code.
-            #
-            # This first pointed at .cache/, which exists locally and is
-            # gitignored — so on Render the directory was simply absent and
-            # sqlite3 cannot create a file inside a directory that does not
-            # exist. It failed only on this tab, only in deployment, and only
-            # when a visitor pressed the button, which is the worst of the
-            # possible times to find out.
-            #
-            # Nothing here needs to survive: memory is off, the store is handed
-            # in empty so that no learned fact can influence a live answer, and
-            # a free instance loses its filesystem on every sleep anyway.
-            store = MemoryStore(
-                dsn="", sqlite_path=Path(tempfile.gettempdir()) / "capstone-live.db"
-            )
-            answer, trace, evidence = asyncio.run(
-                audit_checked(claim, store=store, learn=False)
-            )
-
-        if not evidence.get("admissible"):
-            if evidence.get("reason") == "gave_up_early":
-                st.error(
-                    "**It gave up early.** The agent answered NOT_CHECKABLE after "
-                    f"{evidence['tool_calls']} of 3 lookups, while the tool was "
-                    "still offering tags it never tried: "
-                    + ", ".join(f"`{t}`" for t in evidence.get("untried_tags", [])[:3])
-                    + ". Its verdict is withheld, because \"nothing to check\" "
-                    "has not been established by stopping early — and a false "
-                    "NOT_CHECKABLE is the worst error here: a wrong verdict gets "
-                    "argued with, while \"there is nothing to check\" ends the "
-                    "enquiry and a real contradiction goes unreported."
-                )
-            else:
-                st.error(
-                    "**No evidence.** The agent answered without consulting any "
-                    "filed data, on every attempt. Its verdict is not shown, "
-                    "because an answer with nothing behind it is not a finding."
-                )
-            with st.expander("What it said anyway"):
-                st.code(answer or "(nothing)")
-        else:
-            st.code(answer)
-            st.caption(f"{evidence['tool_calls']} lookup(s), {evidence['attempts']} attempt(s)")
-        with st.expander("Trace — every step the agent took"):
-            for step in trace:
-                st.text(f"{step.get('kind', '?'):8s} {str(step)[:300]}")
+    st.divider()
+    st.markdown("### Every verified claim, by concept")
+    joined = [_json.loads(l) for l in (report_mod.HERE / "join.jsonl").open(encoding="utf-8")]
+    ver = [r for r in joined if r["bucket"] == "verified"]
+    concepts = sorted({r["matched_tag"] for r in ver})
+    pick = st.selectbox(
+        f"{len(ver)} verified claims across {len(concepts)} concepts",
+        concepts,
+        format_func=lambda t: f"{t}  ({sum(1 for r in ver if r['matched_tag']==t)})")
+    hits = sorted((r for r in ver if r["matched_tag"] == pick),
+                  key=lambda r: r["fiscal_year"])
+    st.caption(
+        f"Verified in {len(hits)} claim(s), across fiscal years "
+        f"{', '.join(str(r['fiscal_year']) for r in hits)}."
+    )
+    for r in hits:
+        with st.expander(f"FY{r['fiscal_year']} · **{r['figure']}**"):
+            st.info(r["raw_sentence"][:400].replace("$", chr(92) + "$"))
+            m = st.columns(3)
+            m[0].metric("claimed", r["figure"])
+            m[1].metric("filed", f"${r['filed']/1e9:,.2f}B")
+            m[2].metric("confidence", f"{r.get('matched_cos', 0):.2f}")
+            st.caption("compared as a year-over-year change" if r["is_change"]
+                       else "compared as a total")
 
 
 # --- the study --------------------------------------------------------------
@@ -327,25 +401,6 @@ with study_tab:
         "in 2011**, normalised for document length. Tag availability never moved "
         "(79–88% throughout). What changed is that the prose moved down to segment "
         "level, where the SEC's JSON API strips the dimensions and cannot follow."
-    )
-
-    st.divider()
-    st.markdown("### Figures move, and concepts expire")
-    panel = report_mod.HERE / "stage3_panel.svg"
-    if panel.exists():
-        st.markdown(svg(panel.read_text(encoding="utf-8")), unsafe_allow_html=True)
-    st.markdown(
-        "JPMorgan's filed operating cash flow **changed between filings in four "
-        "consecutive years**. And two concepts stop being filed mid-series — "
-        "`TierOneRiskBasedCapital` ends at the Basel III transition in 2013. Both "
-        "still return HTTP 200 with historical data, so **a dead tag looks exactly "
-        "like a live one.**"
-    )
-    st.info(
-        "This corrects the principle the memory layer was built on. *Store the "
-        "route, not the answer* was right about figures and incomplete about "
-        "routes — **routes expire too**, and unlike a stale figure a dead tag "
-        "fails silently."
     )
 
     st.divider()
