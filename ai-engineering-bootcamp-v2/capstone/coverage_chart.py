@@ -59,6 +59,9 @@ from typing import NamedTuple
 
 HERE = Path(__file__).parent
 
+NAMES = {"JPM": "JPMorgan", "BAC": "Bank of America", "MS": "Morgan Stanley",
+         "WFC": "Wells Fargo", "C": "Citigroup", "GS": "Goldman Sachs"}
+
 class Band(NamedTuple):
     """One reason a sentence can or cannot be checked.
 
@@ -125,8 +128,13 @@ BANDS = [
 ]
 
 
-def tally() -> tuple[list[str], dict[str, list[int]], dict[str, int]]:
+def load(ticker: str | None = None) -> list[dict]:
     rows = [json.loads(line) for line in (HERE / "coverage.jsonl").open(encoding="utf-8")]
+    return [r for r in rows if ticker is None or r["ticker"] == ticker]
+
+
+def tally(ticker: str = "JPM") -> tuple[list[str], dict[str, list[int]], dict[str, int]]:
+    rows = load(ticker)
     years = sorted({str(r["doc_fy"]) for r in rows})
     counts = {b.key: [] for b in BANDS}
     totals = {}
@@ -150,8 +158,8 @@ def tally() -> tuple[list[str], dict[str, list[int]], dict[str, int]]:
     return years, counts, totals
 
 
-def coverage_svg() -> str:
-    years, counts, totals = tally()
+def coverage_svg(ticker: str = "JPM") -> str:
+    years, counts, totals = tally(ticker)
     W, H = 900, 430
     L, R, T, B = 52, 14, 58, 64            # margins
     plot_w, plot_h = W - L - R, H - T - B
@@ -190,10 +198,10 @@ def coverage_svg() -> str:
                  f'class="tick">{year[2:]}</text>')
 
     p.append(f'<line x1="{L}" y1="{T+plot_h}" x2="{W-R}" y2="{T+plot_h}" class="axis"/>')
-    p.append(f'<text x="{L}" y="20" class="title">Numeric claims in JPMorgan\'s Item 7, '
+    p.append(f'<text x="{L}" y="20" class="title">Numeric claims in {NAMES[ticker]}\'s Item 7, '
              f'and how many can be checked against filed XBRL</text>')
-    p.append(f'<text x="{L}" y="38" class="sub">Fiscal years 2011–2025 · '
-             f'{sum(totals.values()):,} claims · FY2010 unavailable</text>')
+    p.append(f'<text x="{L}" y="38" class="sub">Fiscal years {years[0]}–{years[-1]} · '
+             f'{sum(totals.values()):,} claims</text>')
 
     # legend — always present for >= 2 series
     lx = L
@@ -225,14 +233,14 @@ def coverage_svg() -> str:
  }}</style>{"".join(p)}</svg>'''
 
 
-def band_summary(year: str = "2025") -> list[dict]:
+def band_summary(ticker: str = "JPM", year: str = "2025") -> list[dict]:
     """One row per band for the app's plain-language cards.
 
     Written to a small JSON file rather than recomputed on the page, because
     the app would otherwise parse a 3 MB coverage.jsonl on every visit to
     print five numbers that only change when the study is re-run.
     """
-    years, counts, totals = tally()
+    years, counts, totals = tally(ticker)
     i = years.index(year)
     return [{"key": b.key, "short": b.short, "plain": b.plain,
              "example": b.example, "light": b.light, "dark": b.dark,
@@ -240,9 +248,149 @@ def band_summary(year: str = "2025") -> list[dict]:
              "share": counts[b.key][i] / totals[year]} for b in BANDS]
 
 
-def table_rows() -> list[dict]:
+def comparison_svg() -> str:
+    """Five banks, five panels, one line each — deliberately not five lines.
+
+    FORM
+
+    A single chart with one line per bank fails the palette check outright: five
+    categorical hues cannot clear the all-pairs separation floors, and lines
+    cross, so adjacency is not enough to rescue them. Small multiples sidestep
+    that entirely — every panel carries one series, so there is no categorical
+    palette to validate and no colour anyone has to tell apart.
+
+    It also stops the figure reading as a league table, which matters more here
+    than the colour does. The four other banks sit behind each panel in grey, so
+    a reader sees where a bank falls in the spread without the chart ranking
+    them for him.
+
+    WHAT THE PANELS DO NOT SAY
+
+    A claim counts as checkable only when our own retrieval proposes a tag for
+    it. That retrieval was built and tuned against JPMorgan, so a bank whose
+    wording it reads badly and a bank that genuinely tags less of its narrative
+    produce the same line. The levels are not comparable between panels; the
+    slope inside one panel holds the matcher constant and is the safer read.
+
+    The subtitle says so, on the figure, because a caveat that lives only in a
+    document beside the figure is a caveat nobody reads.
+    """
+    order = ["JPM", "BAC", "MS", "WFC", "C"]
+    series: dict[str, list[tuple[int, float]]] = {}
+    for t in order:
+        rows = load(t)
+        pts = []
+        # Citigroup has an FY2010 filing and the panels run 2011-2025. Plotting
+        # it anyway put the first segment of its line outside its own panel,
+        # overlapping the neighbour — a point drawn where it does not belong is
+        # worse than a point not drawn.
+        for fy in sorted({r["doc_fy"] for r in rows if 2011 <= r["doc_fy"] <= 2025}):
+            rs = [r for r in rows if r["doc_fy"] == fy]
+            chk = sum(1 for r in rs if r["structural"] == "reachable" and r["has_tag"])
+            pts.append((fy, chk / len(rs)))
+        series[t] = pts
+
+    W, H = 940, 262
+    L, R, T, B = 40, 16, 74, 34
+    pw = (W - L - R - 4 * 14) / 5
+    ph = H - T - B
+    ymax = 0.60
+    x0, x1 = 2011, 2025
+    px = lambda p, fy: p + (fy - x0) / (x1 - x0) * pw
+    py = lambda v: T + ph - v / ymax * ph
+
+    out = []
+    for i, t in enumerate(order):
+        p0 = L + i * (pw + 14)
+        out.append(f'<text x="{p0}" y="{T-11}" class="pt">{NAMES[t]}</text>')
+        for g in (0.0, 0.2, 0.4, 0.6):
+            y = py(g)
+            out.append(f'<line x1="{p0}" y1="{y:.1f}" x2="{p0+pw:.1f}" y2="{y:.1f}" class="grid"/>')
+            if i == 0:
+                out.append(f'<text x="{p0-7}" y="{y+3.5:.1f}" text-anchor="end" '
+                           f'class="tick">{g:.0%}</text>')
+        # the other four, ghosted, for scale
+        for other in order:
+            if other == t:
+                continue
+            pts = " ".join(f"{px(p0, fy):.1f},{py(v):.1f}" for fy, v in series[other])
+            out.append(f'<polyline points="{pts}" class="ghost"/>')
+        pts = series[t]
+        out.append('<polyline points="'
+                   + " ".join(f"{px(p0, fy):.1f},{py(v):.1f}" for fy, v in pts)
+                   + '" class="own"/>')
+        for fy, v in pts:
+            out.append(f'<circle cx="{px(p0, fy):.1f}" cy="{py(v):.1f}" r="2" class="dot">'
+                       f'<title>{NAMES[t]} FY{fy}: {v:.0%} checkable</title></circle>')
+        first, last = pts[0], pts[-1]
+        out.append(f'<text x="{px(p0, last[0]):.1f}" y="{py(last[1])-8:.1f}" '
+                   f'text-anchor="end" class="end">{last[1]:.0%}</text>')
+        out.append(f'<text x="{p0}" y="{T+ph+15}" class="tick">{first[0]}</text>')
+        out.append(f'<text x="{p0+pw:.1f}" y="{T+ph+15}" text-anchor="end" '
+                   f'class="tick">{last[0]}</text>')
+
+    return f'''<svg viewBox="0 0 {W} {H}" width="100%" role="img"
+ aria-label="Five small line charts, one per bank, showing the share of numeric MD&amp;A
+ claims with a matching filed concept each year. The level differs greatly between banks;
+ the other four banks are drawn in grey behind each panel for scale."
+ xmlns="http://www.w3.org/2000/svg"><style>
+ .grid{{stroke:#e8e8e5;stroke-width:1}}
+ .ghost{{fill:none;stroke:#d6d6d2;stroke-width:1.2}}
+ .own{{fill:none;stroke:#0e9d8c;stroke-width:2}} .dot{{fill:#0e9d8c}}
+ .tick{{font:10px ui-sans-serif,system-ui,sans-serif;fill:#6b6b66;font-variant-numeric:tabular-nums}}
+ .pt{{font:600 12px ui-sans-serif,system-ui,sans-serif;fill:#0b0b0b}}
+ .end{{font:600 11px ui-sans-serif,system-ui,sans-serif;fill:#0e9d8c;font-variant-numeric:tabular-nums}}
+ .h1{{font:600 14px ui-sans-serif,system-ui,sans-serif;fill:#0b0b0b}}
+ .h2{{font:11.5px ui-sans-serif,system-ui,sans-serif;fill:#52514e}}
+ @media (prefers-color-scheme:dark){{
+   .grid{{stroke:#2c2c2a}} .ghost{{stroke:#3f3f3c}}
+   .own{{stroke:#03a290}} .dot{{fill:#03a290}} .end{{fill:#03a290}}
+   .tick,.h2{{fill:#c3c2b7}} .pt,.h1{{fill:#ffffff}}
+ }}</style>
+ <text x="{L}" y="20" class="h1">Share of numeric claims with a matching filed concept, by bank</text>
+ <text x="{L}" y="36" class="h2">The other four banks are grey behind each panel.</text>
+ <text x="{L}" y="50" class="h2">Levels are not comparable across panels &#8212; retrieval was tuned on JPMorgan, so a bank
+ we read badly and a bank that genuinely tags less look the same.</text>
+ {"".join(out)}</svg>'''
+
+
+def filer_summary() -> list[dict]:
+    """Per-bank headline numbers, computed rather than typed into the page.
+
+    The app used to carry JPMorgan's density and segment share as literals in
+    its own source. With one filer that was merely brittle; with five it would
+    be five chances to leave a stale number under a chart that had moved on.
+    Everything here comes out of coverage.jsonl and the filing manifest.
+
+    Density is claims per 10,000 characters of Item 7, because the raw count
+    falls partly for the dull reason that the documents got shorter.
+    """
+    manifest = json.loads((HERE / "data" / "history" / "manifest.json").read_text())
+    chars = {(m["ticker"], int(m["fiscal_year"])): m["chars"] for m in manifest}
+
+    out = []
+    for t in sorted({r["ticker"] for r in load()}):
+        rows = [r for r in load(t) if 2011 <= r["doc_fy"] <= 2025]
+        years = sorted({r["doc_fy"] for r in rows})
+        first, last = years[0], years[-1]
+
+        def band(fy):
+            rs = [r for r in rows if r["doc_fy"] == fy]
+            chk = sum(1 for r in rs if r["structural"] == "reachable" and r["has_tag"])
+            seg = sum(1 for r in rs if r["structural"] == "tagged_unreachable")
+            n = len(rs) or 1
+            c = chars.get((t, fy)) or 0
+            return {"fy": fy, "claims": len(rs), "checkable": chk / n, "segment": seg / n,
+                    "density": (len(rs) / c * 10_000) if c else None}
+
+        out.append({"ticker": t, "name": NAMES[t], "years": len(years),
+                    "claims": len(rows), "first": band(first), "last": band(last)})
+    return out
+
+
+def table_rows(ticker: str = "JPM") -> list[dict]:
     """The relief the light-mode contrast warning obliges."""
-    years, counts, totals = tally()
+    years, counts, totals = tally(ticker)
     out = []
     for i, year in enumerate(years):
         row = {"fiscal year": year}
@@ -255,12 +403,21 @@ def table_rows() -> list[dict]:
 
 
 if __name__ == "__main__":
-    svg = coverage_svg()
-    (HERE / "coverage_chart.svg").write_text(svg, encoding="utf-8")
-    print(f"wrote coverage_chart.svg ({len(svg):,} bytes)")
-    summary = band_summary()
-    (HERE / "coverage_bands.json").write_text(
-        json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"wrote coverage_bands.json ({len(summary)} bands, FY2025)")
-    for r in table_rows():
-        print(r)
+    import sys
+
+    tickers = sys.argv[1:] or sorted({r["ticker"] for r in load()})
+    for t in tickers:
+        svg = coverage_svg(t)
+        (HERE / f"coverage_chart_{t}.svg").write_text(svg, encoding="utf-8")
+        summary = band_summary(t)
+        (HERE / f"coverage_bands_{t}.json").write_text(
+            json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
+        years, _, totals = tally(t)
+        print(f"  {t:4} {len(years):>2} years  {sum(totals.values()):>6,} claims  "
+              f"-> coverage_chart_{t}.svg, coverage_bands_{t}.json")
+    (HERE / "coverage_summary.json").write_text(
+        json.dumps(filer_summary(), indent=2), encoding="utf-8")
+    print("  wrote coverage_summary.json")
+    comp = comparison_svg()
+    (HERE / "coverage_comparison.svg").write_text(comp, encoding="utf-8")
+    print(f"  wrote coverage_comparison.svg ({len(comp):,} bytes)")

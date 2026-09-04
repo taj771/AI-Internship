@@ -1,0 +1,52 @@
+[
+  {
+    "key": "checkable",
+    "short": "Checkable",
+    "plain": "The bank names a number, and its own filed spreadsheet has a line with that name. We can look it up and compare.",
+    "example": "JPMorganChase had $4.4 trillion in assets and $362.4 billion in stockholders' equity as of December 31, 2025",
+    "light": "#0e9d8c",
+    "dark": "#03a290",
+    "count": 135,
+    "share": 0.3358208955223881
+  },
+  {
+    "key": "derivable",
+    "short": "A change, not an amount",
+    "plain": "The number is a movement, not an amount. Nobody files a movement — checking it means looking up two years and subtracting.",
+    "example": "Noninterest expense was $95.6 billion, up 4%, driven by higher compensation expense",
+    "light": "#e0a300",
+    "dark": "#c08700",
+    "count": 79,
+    "share": 0.19651741293532338
+  },
+  {
+    "key": "segment",
+    "short": "One part of the bank",
+    "plain": "The figure covers one division or product. The bank did file it and an auditor did sign it — but the SEC's public download hands back whole-bank totals only and drops the by-division detail.",
+    "example": "Net charge-offs were $9.8 billion, up $1.2 billion, predominantly driven by Wholesale and Card Services",
+    "light": "#ea5a1f",
+    "dark": "#bf3002",
+    "count": 44,
+    "share": 0.10945273631840796
+  },
+  {
+    "key": "no_tag",
+    "short": "Nothing filed by that name",
+    "plain": "The right kind of number to look up, but nothing in the filed spreadsheet is named that. Sometimes it genuinely was never filed; sometimes our search missed it — so this band is an upper bound.",
+    "example": "Equity Markets revenue was $13.3 billion, up 33%",
+    "light": "#c62368",
+    "dark": "#d44489",
+    "count": 137,
+    "share": 0.3407960199004975
+  },
+  {
+    "key": "untagged",
+    "short": "Never filed by anyone",
+    "plain": "Not a filed number at all — someone calculated it, sometimes with their own private recipe. There is no filed value to compare it to.",
+    "example": "JPMorganChase reported net income of $57.0 billion for 2025, down 2%, earnings per share of $20.02, ROE of 17% and ROTCE of 20%",
+    "light": "#7a4fd1",
+    "dark": "#8a6ee2",
+    "count": 7,
+    "share": 0.017412935323383085
+  }
+]

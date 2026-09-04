@@ -1,0 +1,102 @@
+[
+  {
+    "ticker": "BAC",
+    "name": "Bank of America",
+    "years": 15,
+    "claims": 10278,
+    "first": {
+      "fy": 2011,
+      "claims": 1130,
+      "checkable": 0.3327433628318584,
+      "segment": 0.046902654867256637,
+      "density": 16.825716842542562
+    },
+    "last": {
+      "fy": 2025,
+      "claims": 402,
+      "checkable": 0.3358208955223881,
+      "segment": 0.10945273631840796,
+      "density": 13.512695883669805
+    }
+  },
+  {
+    "ticker": "C",
+    "name": "Citigroup",
+    "years": 13,
+    "claims": 7282,
+    "first": {
+      "fy": 2013,
+      "claims": 738,
+      "checkable": 0.16124661246612465,
+      "segment": 0.15853658536585366,
+      "density": 13.335164358611118
+    },
+    "last": {
+      "fy": 2025,
+      "claims": 454,
+      "checkable": 0.14757709251101322,
+      "segment": 0.039647577092511016,
+      "density": 9.510064119617335
+    }
+  },
+  {
+    "ticker": "JPM",
+    "name": "JPMorgan",
+    "years": 15,
+    "claims": 6655,
+    "first": {
+      "fy": 2011,
+      "claims": 896,
+      "checkable": 0.5290178571428571,
+      "segment": 0.03236607142857143,
+      "density": 16.877351009344704
+    },
+    "last": {
+      "fy": 2025,
+      "claims": 278,
+      "checkable": 0.44964028776978415,
+      "segment": 0.1906474820143885,
+      "density": 6.95039964797976
+    }
+  },
+  {
+    "ticker": "MS",
+    "name": "Morgan Stanley",
+    "years": 15,
+    "claims": 3767,
+    "first": {
+      "fy": 2011,
+      "claims": 396,
+      "checkable": 0.37626262626262624,
+      "segment": 0.025252525252525252,
+      "density": 19.442166917876484
+    },
+    "last": {
+      "fy": 2025,
+      "claims": 185,
+      "checkable": 0.25405405405405407,
+      "segment": 0.24864864864864866,
+      "density": 7.429211660248096
+    }
+  },
+  {
+    "ticker": "WFC",
+    "name": "Wells Fargo",
+    "years": 14,
+    "claims": 6145,
+    "first": {
+      "fy": 2011,
+      "claims": 510,
+      "checkable": 0.2196078431372549,
+      "segment": 0.03333333333333333,
+      "density": 11.945192645508843
+    },
+    "last": {
+      "fy": 2025,
+      "claims": 235,
+      "checkable": 0.25957446808510637,
+      "segment": 0.03404255319148936,
+      "density": 6.74471400977553
+    }
+  }
+]

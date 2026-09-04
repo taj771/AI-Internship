@@ -843,88 +843,118 @@ with match_tab:
 # nobody reads.
 
 with study_tab:
+    summary = {f["ticker"]: f for f in report_mod.load_json("coverage_summary.json", [])}
     st.markdown("### How much of a bank's own story can be checked?")
     st.caption(
-        "JPMorgan Chase, Item 7, fiscal years 2011–2025 · 6,655 numeric claims · "
-        "no model, no agent, no hand-labelled answer key."
+        f"Five banks · 73 filings · "
+        f"{sum(f['claims'] for f in summary.values()):,} numeric claims · "
+        "fiscal years 2011–2025 · no model, no agent, no hand-labelled answer key."
     )
-    chart = report_mod.HERE / "coverage_chart.svg"
+
+    comp = report_mod.HERE / "coverage_comparison.svg"
+    if comp.exists():
+        st.markdown(svg(comp.read_text(encoding="utf-8")), unsafe_allow_html=True)
+
+    # The comparison used to be a single number, and the number was JPMorgan's.
+    #
+    # The study was built on one filer and reported 45% of FY2025 claims as
+    # checkable. Four more banks put that figure between 14% and 47% — a spread
+    # wider than the fifteen-year movement inside any one of them. So the page
+    # leads with the spread, and the caveat sits with the figure rather than in
+    # a document beside it, because a bank we read badly and a bank that
+    # genuinely tags less produce the same line.
+    st.warning(
+        "**The headline number did not survive a second bank.** Built on "
+        "JPMorgan alone, this study reported 45% of claims as checkable. Across "
+        "five banks it runs **14% to 47%** — a wider spread than fifteen years "
+        "of movement inside any single one. Read the slope within a panel, not "
+        "the height between panels: our retrieval was tuned on JPMorgan, so a "
+        "bank whose wording it reads badly is indistinguishable from a bank "
+        "that tags less of its narrative."
+    )
+    st.markdown(
+        "**What does replicate is the volume.** Numeric prose thinned in every "
+        "bank, measured per 10,000 characters so a shorter document does not "
+        "count as a finding: "
+        + ", ".join(f"{f['name']} {f['first']['density']:.1f}→{f['last']['density']:.1f}"
+                    for f in sorted(summary.values(), key=lambda f: f["name"]))
+        + "."
+    )
+
+    st.divider()
+    st.markdown("#### One bank at a time")
+
+    order = ["JPM", "BAC", "MS", "WFC", "C"]
+    avail = [t for t in order if t in summary]
+    pick = st.selectbox("Bank", avail, format_func=lambda t: summary[t]["name"])
+    f = summary[pick]
+
+    chart = report_mod.HERE / f"coverage_chart_{pick}.svg"
     if chart.exists():
         st.markdown(svg(chart.read_text(encoding="utf-8")), unsafe_allow_html=True)
 
-    # The legend, spelled out.
-    #
-    # The five bands were labelled "Checkable / No tag filed / Comparison /
-    # Segment / Ratio / non-GAAP" and the first reader to see the chart asked
-    # what those meant. They are five answers to one question — can this number
-    # be looked up in what the bank filed, and if not, why not — and four of
-    # them are different reasons for no, with different fixes. A legend has room
-    # for a phrase; this is where the sentence goes.
-    #
-    # Rendered from coverage_bands.json rather than typed here, so the counts
-    # cannot drift from the figure above them. Routed through svg() for the same
-    # reason every drawing is: the examples quote dollar figures, and st.markdown
-    # reads $...$ as LaTeX.
-    bands = report_mod.load_json("coverage_bands.json", [])
+    # The legend, spelled out. Five bands, five answers to one question — can
+    # this number be looked up in what the bank filed, and if not, why not.
+    # The first reader to see the chart asked what the colours meant, which is
+    # what a legend that needs its author standing next to it looks like.
+    bands = report_mod.load_json(f"coverage_bands_{pick}.json", [])
     if bands:
-        st.markdown("#### What the five colours mean")
+        st.markdown("##### What the five colours mean")
         st.caption(
-            "One question, five answers: **can this number be looked up in "
-            "what the bank filed — and if not, why not?** Only the first is a "
-            "yes. The other four are different reasons for no, and they do not "
-            "have the same fix."
+            f"One question, five answers, for {f['name']}'s FY{f['last']['fy']} "
+            "filing: **can this number be looked up in what the bank filed — "
+            "and if not, why not?** Only the first is a yes."
         )
         cards = "".join(
             f'<div class="lk"><div class="sw" style="background:{b["light"]}">'
             f'<span style="background:{b["dark"]}"></span></div>'
             f'<div class="bd"><div class="hd"><span>{b["short"]}</span>'
             f'<span class="n">{b["count"]} claims · {b["share"]:.0%}</span></div>'
-            f'<p>{b["plain"]}</p>'
-            f'<blockquote>“…{b["example"]}”</blockquote></div></div>'
+            f'<p>{b["plain"]}</p></div></div>'
             for b in bands
         )
         st.markdown(svg(f"""<style>
-.lkey{{--ln:#e3e3e0;--ink:#1a1a19;--dim:#57606a;--q:#f4f4f2;
-       display:flex;flex-direction:column;gap:9px;margin:.2rem 0 .6rem}}
-@media (prefers-color-scheme:dark){{.lkey{{--ln:#2f2f2d;--ink:#e8e8e4;
-       --dim:#a8a8a0;--q:#242423}}}}
+.lkey{{--ln:#e3e3e0;--ink:#1a1a19;--dim:#57606a;
+       display:flex;flex-direction:column;gap:8px;margin:.2rem 0 .6rem}}
+@media (prefers-color-scheme:dark){{.lkey{{--ln:#2f2f2d;--ink:#e8e8e4;--dim:#a8a8a0}}}}
 .lkey .lk{{display:grid;grid-template-columns:7px 1fr;
        border:1px solid var(--ln);border-radius:7px;overflow:hidden}}
 .lkey .sw span{{display:none}}
 @media (prefers-color-scheme:dark){{.lkey .sw{{background:none!important}}
        .lkey .sw span{{display:block;height:100%}}}}
-.lkey .bd{{padding:11px 15px 12px}}
-.lkey .hd{{margin:0 0 5px;font:600 14px ui-sans-serif,system-ui,sans-serif;
+.lkey .bd{{padding:10px 15px 11px}}
+.lkey .hd{{margin:0 0 4px;font:600 13.5px ui-sans-serif,system-ui,sans-serif;
        color:var(--ink);display:flex;justify-content:space-between;
        align-items:baseline;gap:14px}}
 .lkey .n{{font-weight:400;font-size:12.5px;color:var(--dim);white-space:nowrap;
        font-variant-numeric:tabular-nums}}
-.lkey p{{margin:0;font-size:13.5px;line-height:1.55;color:var(--ink)}}
-.lkey blockquote{{margin:8px 0 0;padding:7px 11px;background:var(--q);
-       border-radius:5px;font-size:12.5px;line-height:1.5;color:var(--dim)}}
+.lkey p{{margin:0;font-size:13px;line-height:1.5;color:var(--ink)}}
 </style><div class="lkey">{cards}</div>"""), unsafe_allow_html=True)
 
-    st.divider()
-    c = st.columns(3)
-    c[0].metric("Numeric density, FY2011", "16.9", help="claims per 10,000 characters")
-    c[1].metric("Numeric density, FY2025", "7.0", "−58%", delta_color="off")
-    c[2].metric("Claims about one part of the bank", "3% → 19%",
-                help="29 of 896 claims in FY2011; 53 of 278 in FY2025")
-    st.markdown(
-        "**JPMorgan puts less than half as many numbers in its narrative as it did "
-        "in 2011**, normalised for document length. Tag availability never moved "
-        "(79–88% throughout). What changed is that the prose moved down to segment "
-        "level — the orange band, 3% of claims in 2011 and 19% today — where "
-        "the SEC's JSON API strips the dimensions and cannot follow."
-    )
+    a, b = f["first"], f["last"]
+    m = st.columns(3)
+    m[0].metric(f"Numeric density, FY{a['fy']}", f"{a['density']:.1f}",
+                help="claims per 10,000 characters of Item 7")
+    m[1].metric(f"Numeric density, FY{b['fy']}", f"{b['density']:.1f}",
+                f"{b['density'] / a['density'] - 1:+.0%}", delta_color="off")
+    m[2].metric("Claims about one part of the bank",
+                f"{a['segment']:.0%} → {b['segment']:.0%}",
+                help=f"FY{a['fy']} to FY{b['fy']}")
 
     st.divider()
     st.caption(
-        "**Limits.** One filer, one section, fifteen years. MD&A is not required "
-        "to be tagged, so an unverifiable claim is unverifiable — not false. "
-        "Nothing here measures how often a company is wrong. Full method, "
-        "retractions and limits in COVERAGE_STUDY.md."
+        "**Limits.** Five filers, one section, fifteen years. MD&A is not "
+        "required to be tagged, so an unverifiable claim is unverifiable — not "
+        "false. Nothing here measures how often a company is wrong. Three "
+        "filings could not be extracted (Citigroup FY2011–12, Wells Fargo "
+        "FY2013), and Citigroup's segment claims are undercounted from FY2023, "
+        "when it renamed its segments to Services, Markets, Banking and Wealth "
+        "— four ordinary words that would drag firmwide sentences into the "
+        "band if matched. Full method, retractions and limits in "
+        "COVERAGE_STUDY.md."
     )
+
+
 
 
 # --- method -----------------------------------------------------------------
