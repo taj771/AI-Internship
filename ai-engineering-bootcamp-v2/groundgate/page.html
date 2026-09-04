@@ -1,0 +1,341 @@
+<title>Groundgate</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+:root{
+  --paper:#eef1f4; --surface:#ffffff; --sunk:#e4e9ee;
+  --ink:#0e1519; --body:#2c3a44; --muted:#5a6873;
+  --rule:#cfd7de; --hair:#e0e6eb;
+  --accent:#14526b; --accent-soft:#e2edf2;
+  --pass:#12703f; --flag:#8a5a00; --block:#a01f27;
+  --pass-bg:#e4f2ea; --flag-bg:#f7efdf; --block-bg:#f8e4e5;
+  --shadow:0 1px 1px rgba(14,21,25,.04), 0 10px 26px rgba(14,21,25,.06);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#0b1014; --surface:#131b21; --sunk:#0e161b;
+    --ink:#e5ecf1; --body:#b6c4ce; --muted:#8899a5;
+    --rule:#26313a; --hair:#1d262d;
+    --accent:#74b9d2; --accent-soft:#152a34;
+    --pass:#48b57c; --flag:#d3a247; --block:#e26a71;
+    --pass-bg:#10241a; --flag-bg:#241d0d; --block-bg:#2a1315;
+    --shadow:0 1px 1px rgba(0,0,0,.35), 0 10px 26px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#0b1014; --surface:#131b21; --sunk:#0e161b;
+  --ink:#e5ecf1; --body:#b6c4ce; --muted:#8899a5;
+  --rule:#26313a; --hair:#1d262d;
+  --accent:#74b9d2; --accent-soft:#152a34;
+  --pass:#48b57c; --flag:#d3a247; --block:#e26a71;
+  --pass-bg:#10241a; --flag-bg:#241d0d; --block-bg:#2a1315;
+  --shadow:0 1px 1px rgba(0,0,0,.35), 0 10px 26px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--body);
+  font:16px/1.6 "IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased}
+.wrap{max-width:840px;margin:0 auto;padding:clamp(28px,5vw,64px) clamp(18px,4vw,32px) 96px;
+  display:flex;flex-direction:column;gap:clamp(34px,5vw,56px)}
+h1,h2,h3{font-family:Newsreader,Georgia,serif;color:var(--ink);text-wrap:balance;margin:0}
+h1{font-size:clamp(30px,5.2vw,46px);line-height:1.1;font-weight:500;letter-spacing:-.012em}
+h2{font-size:clamp(21px,3vw,27px);line-height:1.2;font-weight:500;margin:0 0 .5em}
+h3{font-size:16px;font-weight:600;line-height:1.35}
+p{margin:0 0 .9em;max-width:66ch}
+p:last-child{margin-bottom:0}
+strong{color:var(--ink);font-weight:600}
+a{color:var(--accent)}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,monospace;font-variant-numeric:tabular-nums}
+.eyebrow{font:600 11px/1 "IBM Plex Sans",sans-serif;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--muted)}
+
+/* --- masthead: the page is a record, so it opens like one --- */
+.head{display:flex;flex-direction:column;gap:16px;
+  border-bottom:2px solid var(--ink);padding-bottom:20px}
+.head .meta{display:flex;flex-wrap:wrap;gap:8px 22px;align-items:baseline}
+.lede{font-size:clamp(17px,2.2vw,20px);line-height:1.5;color:var(--body)}
+
+/* --- the verdict, as the gate actually prints it --- */
+.verdict{background:var(--surface);border:1px solid var(--rule);border-radius:3px;
+  box-shadow:var(--shadow);overflow:hidden}
+.verdict .step{display:grid;grid-template-columns:88px 1fr;gap:0 18px;
+  padding:13px 20px;border-bottom:1px solid var(--hair);align-items:baseline}
+.verdict .step:last-child{border-bottom:0}
+.verdict .k{font:600 10.5px/1.5 "IBM Plex Sans",sans-serif;letter-spacing:.13em;
+  text-transform:uppercase;color:var(--muted)}
+.verdict .v{font-family:"IBM Plex Mono",monospace;font-size:13.5px;line-height:1.6;
+  color:var(--ink);word-break:break-word}
+.verdict .v em{font-style:normal;color:var(--muted)}
+.verdict .final{background:var(--block-bg)}
+.verdict .final .v{color:var(--block);font-weight:600}
+
+/* --- three checks: a list, not three cards --- */
+.checks{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--rule)}
+.checks > div{display:grid;grid-template-columns:1fr;gap:4px;
+  padding:16px 0;border-bottom:1px solid var(--hair)}
+.checks .q{display:flex;gap:12px;align-items:baseline}
+.checks .n{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--accent);
+  font-weight:600;min-width:16px}
+.checks p{font-size:14.5px;margin:0;color:var(--muted);padding-left:28px}
+.checks .only{color:var(--ink)}
+
+/* --- the record --- */
+.tally{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}
+.chip{display:inline-flex;align-items:baseline;gap:8px;padding:7px 13px;border-radius:2px;
+  font-size:13px;border:1px solid var(--rule);background:var(--surface)}
+.chip b{font-family:"IBM Plex Mono",monospace;font-size:15px;font-weight:600}
+.chip.block{border-color:var(--block);background:var(--block-bg)} .chip.block b{color:var(--block)}
+.chip.flag{border-color:var(--flag);background:var(--flag-bg)} .chip.flag b{color:var(--flag)}
+.chip.declined b{color:var(--muted)}
+.log{border-top:1px solid var(--rule)}
+.row{width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--hair);
+  border-left:3px solid transparent;padding:11px 14px;display:grid;
+  grid-template-columns:78px 1fr auto;gap:14px;align-items:baseline;cursor:pointer;
+  font:inherit;color:var(--body)}
+.row:hover{background:var(--surface)}
+.row:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.row.block{border-left-color:var(--block)}
+.row.flag{border-left-color:var(--flag)}
+.row.declined{border-left-color:var(--hair);opacity:.72}
+.row .fy{font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--muted)}
+.row .cite{font-family:"IBM Plex Mono",monospace;font-size:13px;color:var(--ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.declined .cite{color:var(--muted);font-style:italic;font-family:inherit;font-size:14px}
+.row .mark{font:600 10.5px/1 "IBM Plex Sans",sans-serif;letter-spacing:.11em;
+  text-transform:uppercase;white-space:nowrap}
+.row.block .mark{color:var(--block)} .row.flag .mark{color:var(--flag)}
+.row.declined .mark{color:var(--muted)}
+.detail{display:none;padding:2px 14px 20px 17px;border-bottom:1px solid var(--hair);
+  background:var(--sunk)}
+.detail.on{display:block}
+.detail dl{display:grid;grid-template-columns:104px 1fr;gap:7px 16px;margin:14px 0 0;
+  font-size:13.5px}
+.detail dt{font:600 10.5px/1.7 "IBM Plex Sans",sans-serif;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--muted)}
+.detail dd{margin:0;color:var(--ink);font-family:"IBM Plex Mono",monospace;
+  font-size:13px;word-break:break-word}
+.detail dd.prose{font-family:inherit;font-size:14px;color:var(--body);line-height:1.55}
+.detail .out{margin-top:14px;font-size:13.5px;font-weight:600}
+.detail .out.block{color:var(--block)} .detail .out.flag{color:var(--flag)}
+.detail .out.declined{color:var(--muted);font-weight:400}
+.hint{font-size:13px;color:var(--muted);margin-top:12px}
+.linkish{font:inherit;font-size:13px;background:none;border:0;border-bottom:1px solid var(--rule);
+  color:var(--accent);cursor:pointer;padding:0 0 1px;margin-left:6px}
+.linkish:hover{border-bottom-color:var(--accent)}
+.linkish:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.row.declined,.detail.declined-d{display:none}
+body.show-declined .row.declined{display:grid}
+
+/* --- retraction: the one block that has to look different --- */
+.retraction{border:1px solid var(--rule);border-left:3px solid var(--accent);
+  background:var(--surface);padding:20px 22px;border-radius:2px}
+.retraction h2{font-size:19px;margin-bottom:.4em}
+.retraction table{width:100%;border-collapse:collapse;margin:14px 0 4px;font-size:13.5px}
+.retraction td{padding:5px 0;border-bottom:1px solid var(--hair)}
+.retraction td:last-child{text-align:right;font-family:"IBM Plex Mono",monospace;
+  font-variant-numeric:tabular-nums;color:var(--ink);font-weight:600;white-space:nowrap}
+.retraction tr:last-child td{border-bottom:0}
+.retraction tr.zero td:last-child{color:var(--block)}
+
+pre{background:var(--surface);border:1px solid var(--rule);border-radius:3px;
+  padding:16px 18px;overflow-x:auto;margin:0;
+  font-family:"IBM Plex Mono",monospace;font-size:13px;line-height:1.65;color:var(--ink)}
+pre .c{color:var(--muted)}
+.limits{display:flex;flex-direction:column;gap:0;border-top:1px solid var(--rule)}
+.limits > div{padding:14px 0;border-bottom:1px solid var(--hair)}
+.limits h3{margin-bottom:3px}
+.limits p{font-size:14.5px;color:var(--muted);margin:0}
+footer{border-top:1px solid var(--rule);padding-top:18px;font-size:13px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media (max-width:560px){
+  .verdict .step{grid-template-columns:1fr;gap:3px}
+  .row{grid-template-columns:60px 1fr;gap:8px}
+  .row .mark{grid-column:2;justify-self:start}
+  .detail dl{grid-template-columns:1fr}
+}
+</style>
+
+<div class="wrap">
+
+<header class="head">
+  <div class="meta">
+    <span class="eyebrow">Verification record</span>
+    <span class="eyebrow">gpt-4o &middot; 40 questions &middot; JPMorgan Chase</span>
+  </div>
+  <h1>An answer is not verified because it names a source.</h1>
+  <p class="lede">Groundgate sits between an assistant and the person reading it, and looks
+  the cited source up in the system it claims to come from. Below is one real answer going
+  through it, then all forty.</p>
+</header>
+
+<section>
+  <h2>One answer, start to finish</h2>
+  <p>An analyst asked which accounting concept JPMorgan filed its FY2011 allowance for
+  credit losses under. Every figure was stripped out of the question, so the model had to
+  recall the answer rather than repeat it back.</p>
+  <div class="verdict">
+    <div class="step"><span class="k">Answer</span>
+      <span class="v">TAG: us-gaap:AllowanceForLoanAndLeaseLosses<br>VALUE: 23,023,000,000</span></div>
+    <div class="step"><span class="k">Did it look</span>
+      <span class="v">no &mdash; <em>0 tool calls</em></span></div>
+    <div class="step"><span class="k">Citation</span>
+      <span class="v">us-gaap:AllowanceForLoanAndLeaseLosses</span></div>
+    <div class="step"><span class="k">Lookup</span>
+      <span class="v">exists = false &mdash; <em>searched every concept JPMorgan has ever
+      filed, 2009&ndash;2026</em></span></div>
+    <div class="step final"><span class="k">Verdict</span>
+      <span class="v">BLOCK &mdash; the answer is not sent</span></div>
+  </div>
+  <p class="hint">The concept is real in the us-gaap taxonomy and spelled correctly.
+  JPMorgan has never used it. That is decidable without a human and without a second model,
+  which is the only reason this is worth anything.</p>
+</section>
+
+<section>
+  <h2>What it checks</h2>
+  <div class="checks">
+    <div>
+      <div class="q"><span class="n">1</span><h3>Did it look?</h3></div>
+      <p>An answer produced with no tool call, or with calls that all came back empty.</p>
+    </div>
+    <div>
+      <div class="q"><span class="n">2</span><h3 class="only">Does the source exist?</h3></div>
+      <p>The cited identifier is absent from the system of record. This is the one nobody does.</p>
+    </div>
+    <div>
+      <div class="q"><span class="n">3</span><h3>Does the source say that?</h3></div>
+      <p>The identifier is real and holds something else.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>All forty, as they came back</h2>
+  <div class="tally" id="tally"></div>
+  <div class="log" id="log"></div>
+  <p class="hint">Every row is a real answer. Click one to see what the gate did with it.
+  <button id="toggle" class="linkish">Show the 29 it declined</button></p>
+</section>
+
+<section class="retraction">
+  <h2>A claim this page used to make, and does not</h2>
+  <p>The memorable version of this pitch is that a fabricated citation usually sits beside a
+  <em>correct</em> figure &mdash; so anyone who checks the number finds it right and carries
+  the fake source forward. An eight-question pilot showed exactly that: five invented
+  concepts, four correct figures.</p>
+  <table>
+    <tr><td>answers the model committed to</td><td>11 of 40</td></tr>
+    <tr><td>cited a source that does not exist</td><td>2 &middot; 18%</td></tr>
+    <tr><td>gave the figure actually asked for</td><td>1 &middot; 9%</td></tr>
+    <tr class="zero"><td>right figure beside an invented source</td><td>0</td></tr>
+  </table>
+  <p style="margin-top:14px">At forty it is zero. The model that invents a source generally
+  gets the number wrong too, and declines rather than committing most of the time. The
+  hazard is real and it is why a fabricated citation matters &mdash; but this measurement
+  did not observe it, so the page says so instead of quietly restating the number.</p>
+</section>
+
+<section>
+  <h2>Using it</h2>
+<pre><span class="c">from</span> groundgate <span class="c">import</span> Gate, Run
+
+gate = Gate(source=my_invoice_system)
+v = gate.check(Run(answer=reply, tool_calls=recorded_calls))
+
+v.outcome          <span class="c"># "pass" | "flag" | "block"</span>
+v.citation_exists  <span class="c"># is the source it named real?</span>
+print(v)           <span class="c"># BLOCK: cited `INV-00000`, which is not in the source</span></pre>
+  <p style="margin-top:14px">A <code class="mono">Source</code> needs one method &mdash;
+  <code class="mono">exists(id)</code>. An invoice table, a ticket system, a document store,
+  a filer&rsquo;s XBRL facts.</p>
+</section>
+
+<section>
+  <h2>What it will not claim</h2>
+  <div class="limits">
+    <div><h3>A verified source is not a verified answer.</h3>
+      <p>All three checks can pass on an answer that cites a real invoice, quotes it
+      correctly, and answers a question you did not ask.</p></div>
+    <div><h3>Fabrication depends on how the question is put.</h3>
+      <p>Two earlier runs with the figure left in the question found 1 fabrication in 25 and
+      1 in 40 &mdash; the model could decline and be entirely right, and did so 24 times out
+      of 25. Quote the condition with the number.</p></div>
+    <div><h3>18% is one run of forty at temperature zero.</h3>
+      <p>The shape is the finding; the figure is indicative. A different sample gives a
+      different number.</p></div>
+    <div><h3>&ldquo;Did it look?&rdquo; flags, it does not block.</h3>
+      <p>An answer that consulted nothing may still be right. It must not be
+      <em>credited</em>, though: nine of fifty runs in the parent project made no tool call,
+      all nine answered with the commonest correct label, and all nine scored as hits.</p></div>
+  </div>
+</section>
+
+<footer>
+  Groundgate &middot; Tharaka Jayalath &middot; measured against
+  <span class="mono">data.sec.gov</span> company facts, JPMorgan Chase (CIK 0000019617).
+  Re-runnable: <span class="mono">blind_probe.py --n 40 --seed N</span>.
+</footer>
+
+</div>
+
+<script>
+const ROWS = [{"id": "JPM-2011-1145", "fy": 2011, "asked": "22%", "sentence": "The cumulative performance metrics for modifications to the PCI residential real estate portfolio seasoned more than six months show weighted average redefault rates of 19% for home equity, 22% for pr", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2019-0099", "fy": 2019, "asked": "$18.6 billion", "sentence": "Noninterest revenue was $18.6 billion , up 15% , and included gains from the loan sales mentioned above as well as the impact of the prior-year adjustment of approximately $330 million to the credit c", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2017-0361", "fy": 2017, "asked": "$ 11,470", "sentence": "Long-term secured funding Year ended December 31, Issuance Maturities/Redemptions (in millions) 2017 2016 2017 2016 Credit card securitization $ 1,545 $ 8,277 $ 11,470 $ 5,025 Other securitizations (a", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2011-0306", "fy": 2011, "asked": "$4.2 billion", "sentence": "Production-related revenue, excluding repurchase losses, was $4.2 billion , a decrease of 2% from the prior year reflecting lower volumes and narrower margins when compared with the prior year", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2018-0261", "fy": 2017, "asked": "$10.4 billion", "sentence": "Noninterest expense was $10.4 billion , an increase of 1% , driven by investments in advisors and technology and higher external fees on revenue growth, largely offset by lower legal expense. 2017 com", "tag": "us-gaap:NoninterestExpense", "value": "59,515,000,000", "verdict": "flag", "exists": true, "reason": "answered without consulting anything", "value_right": false}, {"id": "JPM-2016-0001", "fy": 2016, "asked": "$2.5 trillion", "sentence": "INTRODUCTION JPMorgan Chase & Co., a financial holding company incorporated under Delaware law in 1968, is a leading global financial services firm and one of the largest banking institutions in the U", "tag": "us-gaap:Assets", "value": "2,490,972,000,000", "verdict": "flag", "exists": true, "reason": "answered without consulting anything", "value_right": true}, {"id": "JPM-2015-0375", "fy": 2014, "asked": "$2.4 trillion", "sentence": "Assets under management were $1.7 trillion, a decrease of 1% from the prior year due to the effect of lower market levels partially offset by net inflows to long-term products. 2014 compared with 2013", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2014-0456", "fy": 2014, "asked": "$22.6 billion", "sentence": "Markets and Investor Services revenue was $22.6 billion compared to $23.4 billion in the prior year", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2025-0134", "fy": 2025, "asked": "$2.2 billion", "sentence": "These amounts have been excluded based upon the government guarantee. (c) Includes $2.2 billion related to the Apple Card transaction", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2023-0022", "fy": 2023, "asked": "$6.2 billion", "sentence": "• The provision for credit losses was $9.3 billion, reflecting $6.2 billion of net charge-offs and a net addition to the allowance for credit losses of $3.1 billion", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2012-0905", "fy": 2012, "asked": "$539 million", "sentence": "See Consumer Credit Portfolio on pages 138–149 of this Annual Report for further details. (i) Charge-offs and net charge-off rates for the year ended December 31, 2012 , included net charge-offs of Ch", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2012-0059", "fy": 2012, "asked": "$9.5 billion", "sentence": "Return on equity for the year was 28% on $9.5 billion of average allocated capital", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2014-0534", "fy": 2014, "asked": "$6.3 billion", "sentence": "Revenue from Global Investment Management was $6.3 billion, up 6% due to net client inflows and the effect of higher market levels, partially offset by lower valuations of seed capital investments", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2025-0080", "fy": 2025, "asked": "$1.1 billion", "sentence": "Net charge-offs were $1.6 billion and the net addition to the allowance for credit losses was $1.1 billion", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2017-0534", "fy": 2017, "asked": "$ 627.0", "sentence": "December 31, 2017 (in billions, except ratio data) Total assets at fair value Total level 3 assets Trading debt and equity instruments $ 325.3 $ 5.4 Derivative receivables (a) 56.5 6.0 Trading assets ", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2013-0955", "fy": 2013, "asked": "$ 821", "sentence": "Wholesale credit portfolio December 31, Credit exposure Nonperforming (d) (in millions) 2013 2012 2013 2012 Loans retained $ 308,263 $ 306,222 $ 821 $ 1,434 Loans held-for-sale 11,290 4,406 26 18 Loan", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2012-1142", "fy": 2011, "asked": "$28.3 billion", "sentence": "The allowance for credit losses was $22.6 billion at December 31, 2012 , a decrease of $5.7 billion from $28.3 billion at December 31, 2011", "tag": "us-gaap:AllowanceForLoanAndLeaseLosses", "value": "23,023,000,000", "verdict": "block", "exists": false, "reason": "answered without consulting anything; cited `us-gaap:AllowanceForLoanAndLeaseLosses`, which is not in the source", "value_right": false}, {"id": "JPM-2013-0146", "fy": 2012, "asked": "$87.7 billion", "sentence": "For the year ended December 31, 2012, net cash provided by financing activities was $87.7 billion", "tag": "us-gaap:NetCashProvidedByUsedInFinancingActivities", "value": "18,235,000,000", "verdict": "flag", "exists": true, "reason": "answered without consulting anything", "value_right": false}, {"id": "JPM-2015-0332", "fy": 2015, "asked": "$2 billion", "sentence": "Corporate Client Banking covers clients with annual revenue generally ranging between $500 million and $2 billion and focuses on clients that have broader investment banking needs", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2011-0118", "fy": 2010, "asked": "$6.9 billion", "sentence": "The core net interest yield decreased by 38 basis points in 2011 driven by lower loan yields and higher deposit balances, and lower yields on investment securities due to portfolio mix and lower long-", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2023-0146", "fy": 2023, "asked": "$34.8 billion", "sentence": "Noninterest expense was $34.8 billion, up 12%, reflecting: • higher compensation expense, driven by an increase in employees, including the impact of First Republic in the second half of 2023 and addi", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2020-0267", "fy": 2020, "asked": "$2.7 billion", "sentence": "As permitted under the U.S. capital rules issued by the federal banking agencies in 2019, the Firm initially elected to phase-in the January 1, 2020 (“day 1”) CECL adoption impact to retained earnings", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2013-1028", "fy": 2012, "asked": "93%", "sentence": "See Consumer Credit Portfolio on pages 120–129 of this Annual Report for further details. 140 JPMorgan Chase & Co./2013 Annual Report Provision for credit losses For the year ended December 31, 2013 ,", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2014-0782", "fy": 2013, "asked": "$12.2 billion", "sentence": "The total criticized component of the portfolio, excluding loans held-for-sale and loans at fair value, decreased by 16% to $10.2 billion at December 31, 2014 , from $12.2 billion at December 31, 2013", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2014-0032", "fy": 2014, "asked": "$1.4 trillion", "sentence": "Total deposits increased to $1.4 trillion, up 6% from the prior year", "tag": "us-gaap:Deposits", "value": "1,363,427,000,000", "verdict": "flag", "exists": true, "reason": "answered without consulting anything", "value_right": false}, {"id": "JPM-2023-0277", "fy": 2023, "asked": "$146 million", "sentence": "The provision for credit losses was $159 million, predominantly driven by a $146 million addition to the allowance for credit losses to establish the allowance for the First Republic loans and lending", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2020-0076", "fy": 2020, "asked": "$244 million", "sentence": "The prior year included a $244 million net reduction in the allowance for credit losses", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2014-0296", "fy": 2014, "asked": "$4.8 billion", "sentence": "Real Estate Portfolios pretax income was $4.8 billion, up $1.7 billion from the prior year, or 54%, due to a higher benefit from the provision for credit losses, partially offset by lower net revenue", "tag": "us-gaap:IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments", "value": "1,000,000,000", "verdict": "flag", "exists": true, "reason": "answered without consulting anything", "value_right": false}, {"id": "JPM-2016-0204", "fy": 2016, "asked": "$22.1 billion", "sentence": "Markets & Investor Services revenue was $22.1 billion, down 5% from the prior year", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2011-0646", "fy": 2011, "asked": "$5.1 billion", "sentence": "Revenue from Private Banking was $5.1 billion, up 5% from the prior year due to higher deposit and loan balances and higher brokerage revenue, partially offset by narrower deposit spreads and lower lo", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2013-0545", "fy": 2013, "asked": "$2.6 billion", "sentence": "Other primarily includes lending and investment activity within the Community Development Banking and Chase Capital businesses. 2013 compared with 2012 Net income was $2.6 billion, a decrease of $71 m", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2011-0517", "fy": 2011, "asked": "$378 million", "sentence": "Net revenue was a record $6.4 billion, up by $378 million, or 6%, compared with the prior year", "tag": "us-gaap_RevenueFromContractWithCustomerExcludingAssessedTaxIncreaseDecrease", "value": "6,000,000,000", "verdict": "block", "exists": false, "reason": "answered without consulting anything; cited `us-gaap_RevenueFromContractWithCustomerExcludingAssessedTaxIncreaseDecrease`, which is not in the source", "value_right": false}, {"id": "JPM-2017-0071", "fy": 2017, "asked": "$ 1,954", "sentence": "For information on changes in stockholders’ equity, see page 151 , and on the Firm’s capital actions, see Capital actions on pages 89-90 . 48 JPMorgan Chase & Co./2017 Annual Report Consolidated Cash ", "tag": "us-gaap:CashAndCashEquivalentsPeriodIncreaseDecrease", "value": "(7,341,000)", "verdict": "flag", "exists": true, "reason": "answered without consulting anything", "value_right": false}, {"id": "JPM-2018-0101", "fy": 2018, "asked": "$46.5 billion", "sentence": "Net revenue was $46.5 billion , an increase of 3%", "tag": "us-gaap_Revenues", "value": "109029000000", "verdict": "flag", "exists": true, "reason": "answered without consulting anything", "value_right": false}, {"id": "JPM-2023-0532", "fy": 2023, "asked": "$4.1 billion", "sentence": "In the absence of the model update to incorporate deposit repricing lags in the second quarter of 2023, the Firm's U.S. dollar sensitivities as of December 31, 2023, would have been lower by $4.1 bill", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2014-0677", "fy": 2014, "asked": "1%", "sentence": "At the time of origination, the borrower typically selects one of two minimum payment options that will generally remain in effect during the revolving period: a monthly payment of 1% of the outstandi", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2014-0433", "fy": 2014, "asked": "$34.8 billion", "sentence": "Net revenue was $34.8 billion, flat compared with the prior year", "tag": "us-gaap_Revenues", "value": "97,892,000,000", "verdict": "flag", "exists": true, "reason": "answered without consulting anything", "value_right": false}, {"id": "JPM-2013-0585", "fy": 2013, "asked": "$4.5 billion", "sentence": "Net interest income was $4.5 billion, up by $319 million, or 8%, driven by growth in loans and client deposits, partially offset by spread compression", "tag": "us-gaap:InterestIncomeExpenseNet", "value": "44,951,000,000", "verdict": "flag", "exists": true, "reason": "answered without consulting anything", "value_right": false}, {"id": "JPM-2012-0566", "fy": 2011, "asked": "$2.4 billion", "sentence": "Noninterest expense was $2.4 billion, an increase of $111 million, or 5% from the prior year, reflecting higher compensation expense driven by expansion, portfolio growth and increased regulatory requ", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}, {"id": "JPM-2024-0292", "fy": 2023, "asked": "1%", "sentence": "As part of the Inflation Reduction Act of 2022, a 1% excise tax is imposed on net share repurchases commencing January 1, 2023. (b) In the second half of 2022, the Firm temporarily suspended share rep", "tag": null, "value": null, "verdict": "declined", "exists": null, "reason": "answered UNKNOWN", "value_right": false}];
+
+const MARK = {block:"blocked", flag:"flagged", declined:"declined", pass:"passed"};
+const log = document.getElementById("log");
+
+ROWS.forEach((r, i) => {
+  const btn = document.createElement("button");
+  btn.className = "row " + r.verdict;
+  btn.setAttribute("aria-expanded", "false");
+  btn.innerHTML =
+    `<span class="fy">FY${r.fy}</span>` +
+    `<span class="cite">${r.tag ? esc(r.tag) : "declined to answer"}</span>` +
+    `<span class="mark">${MARK[r.verdict]}</span>`;
+  const det = document.createElement("div");
+  det.className = "detail" + (r.verdict === "declined" ? " declined-d" : "");
+  det.innerHTML = detail(r);
+  btn.addEventListener("click", () => {
+    const open = det.classList.toggle("on");
+    det.style.display = open ? "block" : "";
+    btn.setAttribute("aria-expanded", String(open));
+  });
+  log.appendChild(btn);
+  log.appendChild(det);
+});
+
+function detail(r){
+  const rows = [
+    ["the sentence", `<dd class="prose">&ldquo;${esc(r.sentence)}&rdquo;</dd>`],
+    ["figure asked for", `<dd>${esc(r.asked || "—")}</dd>`],
+  ];
+  if (r.tag){
+    rows.push(["source named", `<dd>${esc(r.tag)}</dd>`]);
+    rows.push(["value given", `<dd>${esc(r.value || "—")}</dd>`]);
+    rows.push(["exists in filings", `<dd>${r.exists ? "yes" : "no"}</dd>`]);
+    rows.push(["figure correct", `<dd>${r.value_right ? "yes" : "no"}</dd>`]);
+  }
+  const body = rows.map(([k, v]) => `<dt>${k}</dt>${v}`).join("");
+  return `<dl>${body}</dl>` +
+    `<div class="out ${r.verdict}">${esc(r.reason)}</div>`;
+}
+
+const counts = ROWS.reduce((a, r) => (a[r.verdict] = (a[r.verdict]||0)+1, a), {});
+document.getElementById("tally").innerHTML =
+  [["block","blocked — cited something that does not exist"],
+   ["flag","flagged — answered without consulting anything"],
+   ["declined","declined to answer"]]
+  .map(([k, label]) => `<span class="chip ${k}"><b>${counts[k]||0}</b> ${label}</span>`)
+  .join("");
+
+const toggle = document.getElementById("toggle");
+toggle.addEventListener("click", () => {
+  const on = document.body.classList.toggle("show-declined");
+  toggle.textContent = on ? "Hide the 29 it declined" : "Show the 29 it declined";
+});
+
+function esc(s){
+  return String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+}
+</script>
