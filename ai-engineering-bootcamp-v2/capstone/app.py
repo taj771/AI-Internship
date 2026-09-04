@@ -400,6 +400,42 @@ with time_tab:
 # who clicks into that finds the tool wrong, not the filer — so it is labelled
 # before they click, not after.
 
+@st.cache_resource(show_spinner=False)
+def filer_facts() -> dict:
+    """Every us-gaap concept JPMorgan has ever filed, parsed once per process.
+
+    Cached as a resource rather than data: it is 8 MB of JSON and re-parsing it
+    on every rerun would cost more than the model call it is checking.
+    """
+    import prepare_evidence as _pe
+    return _pe.company_facts("JPM")["facts"]["us-gaap"]
+
+
+def check_tag(tag: str | None, fy: int) -> tuple[str, float | None]:
+    """Did this filer actually file that tag, and what value for that year?
+
+    This is the citation check, and it is the part of the comparison that could
+    not be done by eye. A model can name a concept that exists in the us-gaap
+    taxonomy, is spelled correctly, and reads plausibly — and that this filer
+    has never once used. Asked about JPMorgan's FY2021 preferred dividends, the
+    no-tool model answered PreferredStockDividendsAndOtherAdjustments, which is
+    a real taxonomy concept and appears nowhere in JPMorgan's filings.
+
+    That is the failure tab 1 opens with, and it is worse than a wrong number:
+    the figure beside it can be right, so a reader who checks the figure finds
+    it correct and assumes the source is too.
+    """
+    if not tag or tag.upper() == "UNKNOWN":
+        return "declined", None
+    part = filer_facts().get(tag)
+    if part is None:
+        return "not_filed", None
+    import prepare_evidence as _pe
+    usd = part.get("units", {}).get("USD") or []
+    v = _pe.annual_value(usd, fy)
+    return ("filed", v["value"]) if v else ("filed_other_years", None)
+
+
 def model_value(text: str | None) -> float | None:
     """Turn a model's VALUE line into dollars.
 
@@ -604,9 +640,10 @@ with match_tab:
                             client = OpenAI(api_key=_os.getenv("OPENAI_API_KEY"))
                             got = [("Model alone, no tools",
                                     parse(no_tools(client, base)),
-                                    "It cannot look anything up. A refusal here "
-                                    "is the correct answer — and still leaves "
-                                    "you to go and look.")]
+                                    "It has no access to the filing, and the "
+                                    "question already contains the figure — so "
+                                    "only the tag it names carries information "
+                                    "here.")]
                             _time.sleep(2)
                             store = MemoryStore(dsn="", sqlite_path=Path(
                                 _tempfile.gettempdir()) / "mc.db")
@@ -624,43 +661,71 @@ with match_tab:
                             )
 
                 for label, (tag, value), note in cache.get(r["id"], []):
-                    # Two axes, because they come apart and the interesting
-                    # cases are where they do. Asked about JPMorgan's FY2012
-                    # allowance, the tool-equipped model answered
-                    # LoansAndLeasesReceivableAllowance rather than the pinned
-                    # FinancingReceivableAllowanceForCreditLosses — and both
-                    # tags hold $21.94B. Scoring the tag alone would have marked
-                    # a right answer wrong.
+                    # The tag is scored against what JPMorgan actually filed,
+                    # not against our pin. Three things had to be separated and
+                    # an earlier version ran them together:
+                    #
+                    #   a synonym      LoansAndLeasesReceivableAllowance instead
+                    #                  of the pinned FinancingReceivable... —
+                    #                  both hold $21.94B for FY2012, so naming
+                    #                  either one is right
+                    #   a wrong tag    a concept JPMorgan does file, holding a
+                    #                  different number
+                    #   a fabrication  a concept JPMorgan has never filed
+                    #
+                    # And the value is not scored at all for the no-tool
+                    # condition, because ASK hands the figure to the model in
+                    # the question. Repeating it is not recall, and marking it
+                    # a hit made a fabricated citation look like a success.
+                    no_tools_row = label.startswith("Model alone")
+                    state, actual = check_tag(tag, r["fy"])
                     same_tag = bool(tag) and tag.lower() == c["tag"].lower()
-                    declined = not tag or tag.upper() == "UNKNOWN"
-                    val = model_value(value)
-                    same_val = (val is not None and r["filed"]
-                                and abs(val - r["filed"]) / abs(r["filed"]) <= 0.015)
-                    if declined:
-                        mark, verdict_word = "❔", "declined"
-                    elif same_tag and same_val:
-                        mark, verdict_word = "✅", "same concept, same number"
-                    elif same_val:
-                        mark, verdict_word = "🟰", "different concept, same number"
-                    else:
-                        mark, verdict_word = "❌", "different number"
+                    tag_holds_it = (actual is not None and r["filed"]
+                                    and abs(actual - r["filed"]) / abs(r["filed"]) <= 0.015)
 
-                    st.markdown(f"{mark} **{label}** — {verdict_word}")
+                    if state == "declined":
+                        mark, word = "❔", "declined"
+                    elif state == "not_filed":
+                        mark, word = "⛔", "cited a tag JPMorgan has never filed"
+                    elif state == "filed_other_years":
+                        mark, word = "⚠️", f"real tag, but nothing filed for FY{r['fy']}"
+                    elif same_tag and tag_holds_it:
+                        mark, word = "✅", "the concept this page pinned"
+                    elif tag_holds_it:
+                        mark, word = "🟰", "a different tag holding the same figure"
+                    else:
+                        mark, word = "❌", "a real concept, holding a different figure"
+
+                    st.markdown(f"{mark} **{label}** — {word}")
                     g = st.columns(2)
                     g[0].caption("tag it answered")
                     g[0].code(tag or "— none —", language="text")
+                    g[0].caption(
+                        "JPMorgan has never filed this tag" if state == "not_filed"
+                        else f"JPMorgan filed ${actual/1e9:,.2f}B under it for FY{r['fy']}"
+                        if actual is not None
+                        else "" if state == "declined"
+                        else f"filed in other years, not FY{r['fy']}")
                     g[1].caption("value it answered")
                     g[1].code((value or "— none —")[:60], language="text")
+                    g[1].caption(
+                        "**not scored** — the question hands the model this "
+                        "figure, so repeating it shows nothing"
+                        if no_tools_row else
+                        f"the filing says ${r['filed']/1e9:,.2f}B")
                     st.caption(note)
 
                 if cache.get(r["id"]):
                     st.caption(
-                        "**🟰 is not a failure.** JPMorgan files some figures "
-                        "under more than one tag, and a model naming a different "
-                        "one that holds the same value has found the number by "
-                        "another route. **❌ is the failure that matters** — a "
-                        "confident answer with a different figure, which is real "
-                        "and belongs to something else."
+                        "**Every tag above was checked against JPMorgan's own "
+                        "filings.** ✅ and 🟰 both found the figure — JPMorgan "
+                        "files some numbers under more than one concept, and "
+                        "naming either is right. ❌ named a concept the firm "
+                        "does file, holding a different number. **⛔ is the "
+                        "worst of them**: a concept JPMorgan has never filed, "
+                        "usually beside a figure that is correct — so anyone "
+                        "checking the number finds it right and assumes the "
+                        "source is too."
                     )
 
         if len(listing) > 60:
