@@ -405,6 +405,23 @@ services:
   # ---------------------------------------------------------------------------
   # groundgate-check — the same check, as something a visitor can run.
   #
+  # CREATE THIS ONE BY HAND. Dashboard -> New -> Web Service -> pick the repo,
+  # then copy rootDir, buildCommand and startCommand from below. Do NOT reach it
+  # by syncing a blueprint.
+  #
+  # Every service in this file except `groundgate` was created individually, so
+  # Render holds no link between them and this document. A blueprint sync
+  # therefore reads all of them as new, finds the names taken, and offers to
+  # create eight duplicates with a random suffix — capstone-claim-auditor-vjli
+  # and so on, each on a URL nothing points at and with no environment variables
+  # set. That offer appeared once already and was declined.
+  #
+  # Pointing a blueprint at a different file is not an escape: Render reads
+  # render.yaml at the repository root and nowhere else.
+  #
+  # So this file is what its own header says it is — the recoverable record of
+  # how each service is configured — and not the mechanism that creates them.
+  #
   # Separate service from the page above rather than replacing it, because the
   # two do different jobs. The page is read: it can be attached to a submission
   # and gone through without pressing anything. This is operated: a sceptic who
