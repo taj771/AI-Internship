@@ -31,6 +31,21 @@ from diagram import pipeline_svg
 
 st.set_page_config(page_title="Calibrated Claim Auditor", page_icon="🔍", layout="wide")
 
+
+def svg(markup: str) -> str:
+    """Hand an SVG to Streamlit without markdown eating it.
+
+    st.markdown treats $...$ as LaTeX, and every diagram on this page quotes
+    dollar figures. A picture containing "$51.6 billion" and "$1.6 billion"
+    therefore had everything between the two swallowed and re-rendered as an
+    equation, collapsing the whole drawing into raw text on the deployed page
+    while rendering correctly in every local check.
+
+    Escaping at the one point where SVG reaches the page, rather than in each
+    diagram, means the next drawing cannot reintroduce it.
+    """
+    return markup.replace("$", "&#36;")
+
 BADGE = {
     "SUPPORTED": ("✅", "VERIFIED", "#1a7f37"),
     "CONTRADICTED": ("❌", "CONTRADICTED", "#cf222e"),
@@ -285,7 +300,7 @@ with study_tab:
     )
     chart = report_mod.HERE / "coverage_chart.svg"
     if chart.exists():
-        st.markdown(chart.read_text(encoding="utf-8"), unsafe_allow_html=True)
+        st.markdown(svg(chart.read_text(encoding="utf-8")), unsafe_allow_html=True)
 
     c = st.columns(3)
     c[0].metric("Numeric density, FY2011", "16.9", help="claims per 10,000 characters")
@@ -302,7 +317,7 @@ with study_tab:
     st.markdown("### Figures move, and concepts expire")
     panel = report_mod.HERE / "stage3_panel.svg"
     if panel.exists():
-        st.markdown(panel.read_text(encoding="utf-8"), unsafe_allow_html=True)
+        st.markdown(svg(panel.read_text(encoding="utf-8")), unsafe_allow_html=True)
     st.markdown(
         "JPMorgan's filed operating cash flow **changed between filings in four "
         "consecutive years**. And two concepts stop being filed mid-series — "
@@ -332,7 +347,7 @@ with built_tab:
     calibration = report_mod.load_json("calibration.json", {})
 
     st.markdown("### The pipeline")
-    st.markdown(pipeline_svg(), unsafe_allow_html=True)
+    st.markdown(svg(pipeline_svg()), unsafe_allow_html=True)
     st.caption(
         "The animated flow shows the **order**, and the order is the point: "
         "retrieval happens before the figure is consulted. Reverse it — let the "
