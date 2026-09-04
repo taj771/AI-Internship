@@ -150,13 +150,27 @@ def list_filing_documents(cik_short: str, accession: str) -> list[dict]:
 
     xbrl_viewer = re.compile(r"^R\d+\.htm$", re.IGNORECASE)
     numbered_exhibit = re.compile(r"ex\d", re.IGNORECASE)
+    # ...except exhibit 13, which is the annual report to shareholders.
+    #
+    # The comment above says the MD&A-bearing exhibit "is not named that way in
+    # the file listing", which held for the filers it was written against and
+    # does not hold for Wells Fargo: wfc-12312015xex13.htm is 17 MB and contains
+    # the entire Financial Review that Item 7 incorporates by reference. The
+    # blanket ex-digit rule dropped it, leaving only a 763 KB shell with no
+    # discussion in it, and the filer produced no years for 2011-2019 without an
+    # error anywhere.
+    #
+    # Everything else numbered stays excluded — 21 is the subsidiary list, 23 a
+    # consent, 31 and 32 the certifications, none of them prose.
+    annual_report_exhibit = re.compile(r"ex[-_]?13\b", re.IGNORECASE)
 
     docs = [
         {"name": it["name"], "size": int(it["size"])}
         for it in items
         if it["name"].lower().endswith(".htm")
         and not xbrl_viewer.match(it["name"])
-        and not numbered_exhibit.search(it["name"])
+        and (annual_report_exhibit.search(it["name"])
+             or not numbered_exhibit.search(it["name"]))
     ]
     return sorted(docs, key=lambda d: d["size"], reverse=True)
 

@@ -178,6 +178,42 @@ SEGMENTS = {
         r"Legacy Assets & Servicing|LAS|Card Services|"
         r"Consumer Banking|Global Banking|Global Markets)\b"
     ),
+    # Morgan Stanley renamed once: Institutional Securities / Global Wealth
+    # Management Group / Asset Management through FY2012, then Institutional
+    # Securities / Wealth Management / Investment Management from FY2013.
+    "MS": re.compile(
+        r"\b(Institutional Securities|Global Wealth Management Group|"
+        r"Wealth Management|Investment Management|Asset Management)\b"
+    ),
+    # Wells Fargo reorganised in FY2020. Names are taken from the enumeration
+    # sentence verbatim, not from mine_segments.py's split output — its
+    # " and (?=[A-Z])" rule cuts "Consumer Banking and Lending" in half, and
+    # half of a segment name is a different, much commoner phrase.
+    "WFC": re.compile(
+        r"\b(Consumer Banking and Lending|Corporate and Investment Banking|"
+        r"Wealth and Investment Management|Wealth, Brokerage and Retirement|"
+        r"Community Banking|Wholesale Banking|Commercial Banking|WIM|WBR)\b"
+    ),
+    # Citigroup is the one filer this cannot fully cover, and the gap is
+    # recorded rather than papered over.
+    #
+    # Through FY2021 its segments are specific enough to match on: Global
+    # Consumer Banking, Institutional Clients Group, Citi Holdings,
+    # Corporate/Other. From FY2023 it renamed them to Services, Markets,
+    # Banking and Wealth — four ordinary English words that appear on nearly
+    # every page of a bank's Item 7 in a firmwide sense.
+    #
+    # Matching those would move hundreds of firmwide sentences into the segment
+    # band, which is the band the study's main finding rests on; not matching
+    # them undercounts Citi's segment claims for FY2023-2025. The undercount is
+    # the safer error and it is stated in COVERAGE_STUDY.md, because a band that
+    # is too small is visible as a low number while one inflated by false
+    # positives looks exactly like a finding.
+    "C": re.compile(
+        r"\b(Global Consumer Banking|GCB|Institutional Clients Group|ICG|"
+        r"Personal Banking and Wealth Management|PBWM|"
+        r"U\.S\. Personal Banking|USPB|Citi Holdings|Corporate/Other)\b"
+    ),
     "JPM": re.compile(
         r"\b(Consumer & Community Banking|CCB|Corporate & Investment Bank|CIB|"
         r"Commercial & Investment Bank|Asset & Wealth Management|AWM|"

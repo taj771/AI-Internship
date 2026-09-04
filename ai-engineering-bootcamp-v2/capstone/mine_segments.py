@@ -66,14 +66,25 @@ from pathlib import Path
 HERE = Path(__file__).parent
 HISTORY = HERE / "data" / "history"
 
-# "through five business segments: A, B and C" / "results of our operations
-# through the following four business segments: ..." — the count word is what
-# separates the enumeration from the many passing mentions of "our business
-# segments", of which BAC's FY2013 filing has forty-two.
-ENUM = re.compile(
-    r"\b(?:two|three|four|five|six|seven|eight|nine)\s+"
-    r"(?:business|reportable|operating)\s+segments?\s*[:,]?\s*(.{20,320}?)"
-    r"(?:\s*,?\s*with the remaining|\.\s|\bare reported\b)", re.I | re.S)
+# Filers phrase the enumeration three ways, and one pattern for all three
+# either misses two of them or matches every passing mention of "our business
+# segments" — of which BAC's FY2013 filing has forty-two and MS's FY2025 has
+# seventy-six.
+#
+#   a count word    "...through five business segments: A, B and C"        BAC
+#   an em dash      "...in each of its business segments—A, B and C"       MS
+#   a colon         "...consists of the following business segments: A, B" C
+#
+# So: a count word OR an explicit separator, and at least two names must come
+# out the other side. A "mention" has neither and yields nothing.
+SEGWORD = r"(?:business|reportable|operating)\s+segments?"
+ENUM = [
+    re.compile(r"\b(?:two|three|four|five|six|seven|eight|nine)\s+" + SEGWORD +
+               r"\s*[:,—–-]?\s*(.{20,320}?)"
+               r"(?:\s*,?\s*with the remaining|\.\s|\bare reported\b)", re.I | re.S),
+    re.compile(r"\b" + SEGWORD + r"\s*[:—–]\s*(.{20,320}?)"
+               r"(?:\s*,?\s*with the remaining|\.\s|\bare reported\b)", re.I | re.S),
+]
 
 NOISE = re.compile(r"^(?:and|the|our|its|we|report|results?|through|following)$", re.I)
 
@@ -84,8 +95,12 @@ def names_from(clause: str) -> list[str]:
     for abbr in re.findall(r"\(([A-Z][A-Za-z&]{1,12})\)", clause):
         out.append(abbr)
     clause = re.sub(r"\([^)]*\)", "", clause)
-    for part in re.split(r",| and (?=[A-Z])", clause):
-        name = " ".join(part.split()).strip(" .;:")
+    # Semicolons as well as commas: Wells Fargo separates its segments with
+    # them ("Community Banking; Wholesale Banking; Wealth and Investment
+    # Management"), and splitting on commas alone returns the whole list as one
+    # 60-character "name" that then fails the length test silently.
+    for part in re.split(r"[,;]| and (?=[A-Z])", clause):
+        name = " ".join(part.split()).strip(" .;:—–-")
         # A segment name is a title-cased phrase; anything else here is either
         # connective tissue or the sentence running on past the list.
         if 3 <= len(name) <= 60 and name[:1].isupper() and not NOISE.match(name):
@@ -110,11 +125,19 @@ def main() -> int:
     for m in sorted(manifest, key=lambda m: str(m["fiscal_year"])):
         fy = str(m["fiscal_year"])
         text = " ".join((HISTORY / m["file"]).read_text(encoding="utf-8").split())
-        match = ENUM.search(text)
-        if not match:
+        found, match = [], None
+        for pattern in ENUM:
+            for m in pattern.finditer(text):
+                names = names_from(m.group(1))
+                # Two is the fewest that can be a list. One "name" is a passing
+                # mention whose next capitalised word got swept up.
+                if len(names) >= 2 and len(names) > len(found):
+                    found, match = names, m
+            if found:
+                break
+        if not found:
             quiet.append(fy)
             continue
-        found = names_from(match.group(1))
         print(f"  FY{fy}  {len(found):>2} names")
         print(f"        “…{match.group(0)[:240].strip()}…”")
         print(f"        {found}\n")
