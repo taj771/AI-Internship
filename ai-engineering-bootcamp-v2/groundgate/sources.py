@@ -77,7 +77,23 @@ class SecTagSource:
 
 
 def _load_facts(ticker: str) -> dict:
-    """The filer's concepts, from the capstone's cache if present, else the SEC."""
+    """The filer's concepts, from the nearest source that has them.
+
+    Three places, cheapest first, because this component has to work in three
+    situations: unpacked on its own with no network, sitting next to the study
+    that produced it, and on a machine that has neither.
+
+    filer_concepts.json holds names only — no values, no periods, nothing but the
+    set of concepts each filer has ever used. That is all `exists` needs, it is
+    200 KB instead of 8 MB per filer, and it means the demo runs with the
+    network unplugged. A caller who needs values passes `facts` in.
+    """
+    local = HERE / "filer_concepts.json"
+    if local.exists():
+        names = json.loads(local.read_text(encoding="utf-8")).get(ticker)
+        if names:
+            return dict.fromkeys(names, {})
+
     cached = HERE.parent / "capstone" / ".cache" / f"{ticker}-companyfacts.json"
     if cached.exists():
         return json.loads(cached.read_text(encoding="utf-8"))["facts"]["us-gaap"]
