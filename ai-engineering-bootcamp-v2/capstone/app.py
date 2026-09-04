@@ -21,6 +21,7 @@ and hiding that behind a confident layout would make it worse, not better.
 
 import asyncio
 import json
+import re
 import tempfile
 from pathlib import Path
 
@@ -399,6 +400,29 @@ with time_tab:
 # who clicks into that finds the tool wrong, not the filer — so it is labelled
 # before they click, not after.
 
+def model_value(text: str | None) -> float | None:
+    """Turn a model's VALUE line into dollars.
+
+    prepare_evidence.parse_claimed reads prose ("$21.94 billion") because that
+    is what 10-K prose looks like. Models write "$21.94B", and parse_claimed
+    returns 21.94 for that — a number a thousand million times too small, which
+    would score a correct answer as wrong. Expand the suffix first, then hand
+    the rest to the same parser the corpus uses.
+    """
+    if not text:
+        return None
+    t = text.replace(",", "").strip()
+    m = re.search(r"\$?\s*(-?[\d.]+)\s*(bn|b|mm|m|t)\b", t, re.I)
+    if m:
+        scale = {"t": 1e12, "bn": 1e9, "b": 1e9, "mm": 1e6, "m": 1e6}[m.group(2).lower()]
+        try:
+            return float(m.group(1)) * scale
+        except ValueError:
+            return None
+    import prepare_evidence as _pe
+    return _pe.parse_claimed(t)
+
+
 VERDICT = {
     "agrees":       ("✅", "agrees",              "#1a7f37", "#3fb950"),
     "basis":        ("⚠️", "different basis",     "#9a6700", "#d29922"),
@@ -534,6 +558,154 @@ with match_tab:
 
         if len(listing) > 60:
             st.caption(f"Showing 60 of {len(listing)}.")
+
+        # --- run the models on this claim, live ---------------------------
+        #
+        # Tab 1 makes the case over 40 claims and a precomputed grid. A reader
+        # who does not believe it has no way to test it there. Here they can:
+        # pick one claim whose answer this page already shows, press a button,
+        # and watch a general model try to reach the same figure.
+        #
+        # Three conditions, and the third is deliberately unfair in our favour
+        # and labelled as such. Handing a model the concept our pipeline chose
+        # and asking it to confirm the number is a test of verification, not of
+        # retrieval, and its score is an upper bound rather than a skill.
+        #
+        # Everything is behind a button and cached per claim. Three model calls
+        # against a rate-limited API is fifteen to forty seconds and a real
+        # bill; running it on page load would spend both on every visitor who
+        # scrolled past.
+
+        st.divider()
+        st.markdown("#### Could a model have found this without the pipeline?")
+
+        if not comparable:
+            st.caption(
+                "Nothing to test on this concept — a comparison needs a claim "
+                "whose pin is corroborated, and this concept has none."
+            )
+        else:
+            st.caption(
+                "Pick one of the corroborated claims above and run three "
+                "conditions live against `data.sec.gov`. **What counts as the "
+                "answer** is the concept this page pinned from the wording plus "
+                "the figure the SEC returned for it — two signals that agreed "
+                "without either being told about the other. That is not a "
+                "hand-established ground truth, and on a claim where they agree "
+                "to within 10% it is the best available."
+            )
+
+            labels = [f"FY{r['fy']} · {r['figure']} · {r['verdict']}" for r in comparable]
+            ci = st.selectbox("Claim", range(len(comparable)),
+                              format_func=lambda i: labels[i], key="mc_claim")
+            claim = comparable[ci]
+
+            st.markdown(f"> {claim['sentence'][:300]}".replace("$", chr(92) + "$"))
+            a, b = st.columns(2)
+            a.metric("the concept this page pinned", "", help=c["tag"])
+            a.code(c["tag"], language="text")
+            b.metric("the figure the SEC returned",
+                     f"${claim['filed']/1e9:,.2f}B" if claim["filed"] else "—")
+
+            run = st.button("Run the three conditions", type="primary",
+                            key=f"mc_run_{claim['id']}")
+            cache = st.session_state.setdefault("mc_results", {})
+
+            if run:
+                import asyncio as _asyncio
+                import tempfile as _tempfile
+                import time as _time
+
+                # Imported here, not at the top of the module. A missing or
+                # broken model dependency then costs this one button rather
+                # than the whole page — the tabs that need no model at all
+                # (the study, the coverage chart, every card above) must stay
+                # readable on a box that cannot reach OpenAI.
+                import os as _os
+
+                from openai import OpenAI
+
+                from memory import MemoryStore
+                from stage4_grid import ASK, no_tools, parse, with_agent
+
+                base = ASK.format(sentence=claim["sentence"][:600],
+                                  figure=claim["figure"], company="JPMorgan Chase",
+                                  fy=claim["fy"])
+                given = base + (
+                    "\n\nOur pipeline pinned this sentence to the tag "
+                    f"`{c['tag']}` from its wording alone. Verify that with the "
+                    "tool before answering.")
+
+                out = []
+                with st.spinner("Three model runs against data.sec.gov…"):
+                    try:
+                        client = OpenAI(api_key=_os.getenv("OPENAI_API_KEY"))
+                        out.append(("Model alone, no tools", parse(no_tools(client, base)),
+                                    "It cannot look anything up. A refusal here is "
+                                    "the correct answer."))
+                        _time.sleep(2)
+                        out.append(("Model + SEC lookup tool",
+                                    parse(_asyncio.run(with_agent(
+                                        base, MemoryStore(dsn="", sqlite_path=Path(
+                                            _tempfile.gettempdir()) / "mc.db")))),
+                                    "Full tool access, free to search as it likes. "
+                                    "This is the condition that matters."))
+                        _time.sleep(3)
+                        out.append(("Model + tool + our pin",
+                                    parse(_asyncio.run(with_agent(
+                                        given, MemoryStore(dsn="", sqlite_path=Path(
+                                            _tempfile.gettempdir()) / "mc.db")))),
+                                    "Handed the concept and asked to confirm it. "
+                                    "Advantaged by construction — an upper bound, "
+                                    "not a measurement of skill."))
+                        cache[claim["id"]] = out
+                    except Exception as exc:                      # noqa: BLE001
+                        st.error(
+                            f"The run failed: `{type(exc).__name__}: {exc}`. "
+                            "Everything else on this page is precomputed and "
+                            "unaffected — only this button needs a model."
+                        )
+
+            if claim["id"] in cache:
+                st.markdown("**What each condition answered**")
+                for label, (tag, value), note in cache[claim["id"]]:
+                    # Two axes, because they come apart and the interesting
+                    # cases are where they do. Asked about JPMorgan's FY2012
+                    # allowance, the tool-equipped model answered
+                    # LoansAndLeasesReceivableAllowance rather than the pinned
+                    # FinancingReceivableAllowanceForCreditLosses — and both
+                    # tags hold $21.94B. Scoring the tag alone would have
+                    # marked a right answer wrong.
+                    same_tag = bool(tag) and tag.lower() == c["tag"].lower()
+                    declined = not tag or tag.upper() == "UNKNOWN"
+                    got = model_value(value)
+                    same_val = (got is not None and claim["filed"]
+                                and abs(got - claim["filed"]) / abs(claim["filed"]) <= 0.015)
+                    if declined:
+                        mark, verdict_word = "❔", "declined"
+                    elif same_tag and same_val:
+                        mark, verdict_word = "✅", "same concept, same number"
+                    elif same_val:
+                        mark, verdict_word = "🟰", "different concept, same number"
+                    else:
+                        mark, verdict_word = "❌", "different number"
+                    with st.container(border=True):
+                        st.markdown(f"{mark} **{label}** — {verdict_word}")
+                        g = st.columns(2)
+                        g[0].caption("tag it answered")
+                        g[0].code(tag or "— none —", language="text")
+                        g[1].caption("value it answered")
+                        g[1].code((value or "— none —")[:60], language="text")
+                        st.caption(note)
+                st.caption(
+                    "**🟰 is not a failure.** JPMorgan files some figures under "
+                    "more than one tag, and a model that names a different one "
+                    "holding the same value has found the number by another "
+                    "route. **❌ is the failure that matters** — a confident "
+                    "answer with a different figure, which is real and belongs "
+                    "to something else. **❔ is a refusal**, which is correct "
+                    "behaviour and still leaves you to go and look."
+                )
 
         st.divider()
         st.caption(

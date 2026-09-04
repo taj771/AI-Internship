@@ -5,6 +5,13 @@ requests>=2.32.0
 python-dotenv>=1.0.0
 
 google-adk[extensions]==2.7.1
+
+# Pinned because stage4_grid.py and the model comparison in app.py import it
+# directly. It arrives transitively through google-adk today, which means a
+# dependency of a dependency is holding up a feature the app calls on a button
+# press — the failure would be an ImportError on a deployed page, at the worst
+# possible moment. Declare what you import.
+openai>=1.40
 psycopg[binary]>=3.2
 pytest>=8.0.0
 
