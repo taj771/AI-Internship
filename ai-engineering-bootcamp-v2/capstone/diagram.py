@@ -114,6 +114,13 @@ def _tool(x, y, w, h, label, lines, colour=STROKE, dim=False):
     return out + "</g>"
 
 
+_CSS = """'
+        '.flow{stroke-dashoffset:200;animation:dash 3.2s linear infinite}'
+        '@keyframes dash{to{stroke-dashoffset:0}}'
+        '@media (prefers-reduced-motion:reduce){.flow{animation:none;opacity:0}}'
+        '"""
+
+
 def pipeline_svg() -> str:
     """The pipeline, with the machinery named at every stage.
 
@@ -238,3 +245,67 @@ def pipeline_svg() -> str:
         '@keyframes dash{to{stroke-dashoffset:0}}'
         '@media (prefers-reduced-motion:reduce){.flow{animation:none;opacity:0}}'
         '</style>' + "".join(p) + '</svg>')
+
+
+def gate_svg() -> str:
+    """Three checks between an answer and the person reading it.
+
+    The drawing has one job: show that the check leaves the model entirely. An
+    answer comes in from the left carrying a citation; the gate takes that
+    citation to the system of record — a different box, not a second opinion —
+    and the verdict falls out of what that system says.
+
+    So the system of record sits below and apart, joined by its own arrow, and
+    nothing in the picture loops back into the model. That is the difference
+    between this and a confidence score: a score is the model marking its own
+    work, and a lookup is not.
+
+    The three checks are drawn in the order they fail, and only the middle one
+    touches the system of record. The other two can be answered from the run
+    itself, which is why they are cheaper and weaker.
+    """
+    W, H = 900, 312
+    p = []
+
+    # sub is a list of lines, not a string — passing a string makes _box iterate
+    # it character by character and stack the letters vertically.
+    p.append(_box(24, 104, 150, 82, "The answer",
+                  ["and what the", "assistant did", "to produce it"]))
+
+    checks = [
+        (218, "1", "Did it look?", ["any tool call", "that returned"], STROKE),
+        (218 + 168, "2", "Does it exist?", ["ask the system", "of record"], ACCENT),
+        (218 + 336, "3", "Does it agree?", ["compare the", "value held"], STROKE),
+    ]
+    for x, n, title, lines, colour in checks:
+        p.append(_stage(x, 104, 150, 90, n, title, lines, colour))
+
+    # the system of record, below and apart — nothing loops back to the model
+    p.append(_box(311, 230, 300, 62, "The system of record",
+                  ["invoices · tickets · a table of rows",
+                   "or a filer's own XBRL facts"], colour=ACCENT))
+    p.append(_arrow(461, 194, 461, 230, ACCENT))
+
+    p.append(_arrow(174, 145, 218, 145))
+    p.append(_arrow(368, 145, 386, 145))
+    p.append(_arrow(536, 145, 554, 145))
+
+    p.append(_box(726, 88, 150, 44, "PASS", None, colour=GOOD))
+    p.append(_box(726, 140, 150, 40, "FLAG", None, colour=WARN))
+    p.append(_box(726, 188, 150, 40, "BLOCK", None, colour="#b3261e"))
+    p.append(_arrow(704, 145, 726, 110, GOOD))
+    p.append(_arrow(704, 145, 726, 160, WARN))
+    p.append(_arrow(704, 145, 726, 208, "#b3261e"))
+
+    p.append('<text x="24" y="36" class="d-title">Three checks between an answer '
+             'and the person reading it</text>')
+    p.append('<text x="24" y="57" class="d-note">Only check 2 leaves the run and asks '
+             'the system of record. Nothing loops back into the model:</text>')
+    p.append('<text x="24" y="74" class="d-note">a confidence score is the model '
+             'marking its own work, and a lookup is not.</text>')
+
+    return f'''<svg viewBox="0 0 {W} {H}" width="100%" role="img"
+ aria-label="An answer enters from the left, passes three checks, and leaves as
+ pass, flag or block. Only the second check consults the system of record, drawn
+ below and apart."
+ xmlns="http://www.w3.org/2000/svg"><style>{_CSS}</style>{"".join(p)}</svg>'''

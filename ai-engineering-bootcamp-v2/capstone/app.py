@@ -32,7 +32,7 @@ from pathlib import Path
 import streamlit as st
 
 import report as report_mod
-from diagram import pipeline_svg
+from diagram import gate_svg
 
 st.set_page_config(page_title="Calibrated Claim Auditor", page_icon="🔍", layout="wide")
 
@@ -58,41 +58,44 @@ BADGE = {
     "NOT_CHECKABLE": ("❔", "NOT IN XBRL", "#57606a"),
 }
 
-st.title("Calibrated Claim Auditor")
+st.title("Groundgate")
 st.caption(
-    "Checks what a bank wrote about itself in its 10-K against what it filed "
-    "with the SEC — and says how much to trust the answer. "
-    "**Research tooling, not investment advice.** It says *look at this*, never *do this*."
+    "An answer is not verified because it names a source. This looks the cited "
+    "source up in the system it claims to come from, and blocks the answer when "
+    "it isn't there. **Try it in *Is the source real?*** &nbsp;·&nbsp; "
+    "Built out of a study of 34,870 numeric claims in bank filings, which is the "
+    "evidence in the last four tabs."
 )
 
-# Where this work went.
+# The written record lives off-page.
 #
-# The measurement here — 34,870 claims, five banks, and a pipeline that yields a
-# usable comparison on 0.6% of them — produced one component general enough to
-# leave the subject: the check that a cited source exists in the system it claims
-# to come from. That is groundgate, and it is the link to give someone who does
-# not care about bank filings. This page is what backs it up when they ask how
-# anyone knows.
+# groundgate.onrender.com carries the measurement in full, including a claim it
+# retracted, and is the thing to attach to something rather than send someone
+# to press buttons on.
 st.markdown(
     '<div style="font-size:13.5px;line-height:1.5;padding:9px 14px;margin:2px 0 6px;'
     'border:1px solid rgba(128,128,128,.28);border-left:3px solid #14526b;'
-    'border-radius:3px">This study produced a general tool: <b>groundgate</b> '
-    '— block an AI answer when the source it cites does not exist. '
-    'Run it in the last tab, <b>Is the source real?</b> '
-    '<span style="opacity:.75">The written record is at '
-    '<a href="https://groundgate.onrender.com" target="_blank">groundgate.onrender.com</a>.'
-    '</span></div>', unsafe_allow_html=True)
+    'border-radius:3px">The written record — how this was measured, and one claim '
+    'it retracted — is at '
+    '<a href="https://groundgate.onrender.com" target="_blank"><b>groundgate.onrender.com</b></a>.'
+    '</div>', unsafe_allow_html=True)
 
 # Order is the argument: the problem, the method, the method running on one
 # filing, the same method browsable one concept at a time, then how much of any
 # filing can be confirmed at all, and finally how the confirmed figures move
 # between filings. Coverage before temporal — the scale of the gap has to land
 # before its behaviour over time means anything.
-(fail_tab, built_tab, filings_tab, match_tab, study_tab, time_tab,
- gate_tab) = st.tabs(
-    ["Where models fail", "What we built", "Filing report",
+# Order is the argument, and the argument changed.
+#
+# It used to open on a study of bank filings and end with the one component that
+# turned out to be general. Now it opens on that component — three failures, the
+# thing built to catch one of them, and the measurement — and the filings work
+# follows as what it is: the evidence, and the place the failures were found.
+(fail_tab, built_tab, gate_tab, match_tab,
+ study_tab, time_tab, filings_tab) = st.tabs(
+    ["Three ways it fails", "What we built", "Is the source real?",
      "Does the number match?", "How much can be checked", "How figures change",
-     "Is the source real?"])
+     "Filing report"])
 
 
 # --- where models fail ------------------------------------------------------
@@ -1151,75 +1154,85 @@ with study_tab:
 # --- method -----------------------------------------------------------------
 
 with built_tab:
-    calibration = report_mod.load_json("calibration.json", {})
-
-    st.markdown("### The pipeline")
-    st.markdown(svg(pipeline_svg()), unsafe_allow_html=True)
+    st.markdown("### Three checks between an answer and the person reading it")
+    st.markdown(svg(gate_svg()), unsafe_allow_html=True)
     st.caption(
-        "The animated flow shows the **order**, and the order is the point: "
-        "retrieval happens before the figure is consulted. Reverse it — let the "
-        "number choose the concept — and the agreement you measure afterwards is "
-        "the criterion you selected on, not a finding."
-    )
+        "The order matters because they fail in that order, and only the middle "
+        "one leaves the run. That is the whole design: **a confidence score is "
+        "the model marking its own work; a lookup is not.**")
 
     st.divider()
-    # --- the live demonstration ------------------------------------------
-    #
-    # The left column of the diagram claims a general model answers without a
-    # verifiable source. This lets a visitor test that claim rather than take
-    # it, and the test grades itself: a tag either appears among the ones the
-    # company has filed with the SEC or it does not.
-    #
-    # Two honesties are built into the wording below.
-    #
-    # First, the bare model refuses most of the time. Measured over 25 claims on
-    # 2026-09-02: 24 declined, 1 invented a tag, 0 correct. A demo implying it
-    # fails constantly would be a better show and a worse claim, so a refusal is
-    # presented as the correct behaviour it is.
-    #
-    # Second, the tag list is precomputed into data/filed_tags.json rather than
-    # fetched. Pulling every fact a company has filed is about eight megabytes
-    # per company, which is a slow first click for a visitor and a dependency on
-    # a rate-limited API in the one place the page cannot afford to hang.
-    st.divider()
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.markdown("##### 1 · Did it look?")
+        st.markdown(
+            "Any tool call that came back with something. A call that errored or "
+            "returned nothing does not count — otherwise the check is satisfied "
+            "by calling a tool and ignoring the failure.")
+        st.caption("Flags, never blocks. An answer that consulted nothing may "
+                   "still be right; it must not be **credited**.")
+    with c2:
+        st.markdown("##### 2 · Does the source exist?")
+        st.markdown(
+            "The cited identifier, looked up in the system of record. **This is "
+            "the one nobody does**, and the only one with a deterministic "
+            "answer — it is in the system or it is not.")
+        st.caption("Blocks. Nothing else in the answer can rescue a source that "
+                   "is not there.")
+    with c3:
+        st.markdown("##### 3 · Does the source say that?")
+        st.markdown(
+            "The identifier is real, and holds something else. Numbers compare "
+            "within 1.5%, because prose rounds — &#36;1.6 billion against a "
+            "filed 1,595,000,000 is agreement, not a discrepancy.")
+        st.caption("Flags. A gap is usually a difference of scope, not an error.")
 
     st.divider()
-    st.markdown("### What the structure is worth")
-    st.caption(
-        "40 claims where the correct concept is known independently, asked of the "
-        "same model with the same SEC tool and the same budget. The only thing "
-        "that changes between rows is step 3: whether the model is handed the "
-        "shortlist of candidate concepts retrieved for the sentence."
-    )
-    grid = report_mod.load_json("stage4_grid.json", {})
-    rs = grid.get("results", {})
-    if rs:
-        rows = []
-        for key, label in (("no_tools", "model alone, no tools"),
-                           ("tools", "model + SEC lookup tool"),
-                           ("tools_plus_structure", "+ the retrieved shortlist")):
-            g = rs.get(key, [])
-            if not g:
-                continue
-            ok = sum(1 for x in g if x["correct"])
-            rows.append({"condition": label, "exact tag": f"{ok}/{len(g)}",
-                         "rate": f"{ok/len(g):.0%}",
-                         "declined": sum(1 for x in g
-                                         if not x["got"] or x["got"] == "UNKNOWN")})
-        st.dataframe(rows, hide_index=True, use_container_width=True)
-    st.markdown(
-        "**Tool access is the largest single effect — 12% to 70%.** A model that "
-        "can look things up beats one reasoning from memory by a mile. But one "
-        "stage of structure adds twenty points *on top of* full tool access. "
-        "Narrowing the field before asking the model to judge is doing work the "
-        "model cannot do for itself."
-    )
+    st.markdown("### What a caller has to provide")
+    a, b = st.columns([1.15, 1])
+    with a:
+        st.code(
+            "from groundgate import Gate, Run, ToolCall\n\n"
+            "gate = Gate(source=my_invoice_system)\n"
+            "v = gate.check(Run(answer=reply, tool_calls=calls))\n\n"
+            "v.outcome          # 'pass' | 'flag' | 'block'\n"
+            "v.citation_exists  # is the source it named real?\n"
+            "print(v)           # BLOCK: cited `INV-00000`, which is\n"
+            "                   #        not in the source",
+            language="python")
+    with b:
+        st.markdown("**A `Source` needs one method.**")
+        st.code("def exists(self, citation: str) -> bool: ...", language="python")
+        st.markdown(
+            "That is the whole interface. An invoice table, a ticket system, a "
+            "document store, a filer's XBRL facts — the gate does not know or "
+            "care which.\n\n"
+            "`value()` is optional, and the SEC source deliberately declines to "
+            "implement it: a concept's value depends on which fiscal year and "
+            "period type is meant, and guessing would compare against the wrong "
+            "figure.")
+
+    st.divider()
+    st.markdown("### What it will not claim")
     st.warning(
-        "**The 90% is an upper bound.** That condition is handed the retrieved "
-        "candidates, and retrieval helped construct the test set, so it is "
-        "advantaged by construction. The 12% and the 70% see no retrieval output "
-        "and stand on their own."
-    )
+        "**A verified source is not a verified answer.** All three checks can "
+        "pass on an answer that cites a real record, quotes it correctly, and "
+        "answers a question you did not ask. This narrows how an answer can be "
+        "unfounded. It does not establish that it is founded.")
+    st.markdown(
+        "Measured over 40 questions put to gpt-4o with every figure stripped out, "
+        "so it had to recall rather than repeat: **29 declined, 11 committed to "
+        "an answer, and 2 of those cited a concept the filer had never used.** "
+        "Both were real concepts in the us-gaap taxonomy, correctly spelled.\n\n"
+        "An earlier eight-question pilot suggested the fabricated citation "
+        "usually sits beside a *correct* figure — the pairing that makes it "
+        "dangerous, because whoever checks the number finds it right. **At forty "
+        "that was 0 of 11** and the claim was retracted. The full record is at "
+        "[groundgate.onrender.com](https://groundgate.onrender.com).")
+    st.caption(
+        "The library, its twelve tests and the run that produced these numbers "
+        "are in `ai-engineering-bootcamp-v2/groundgate/`.")
+
 
 
 # --- is the source real? ----------------------------------------------------
